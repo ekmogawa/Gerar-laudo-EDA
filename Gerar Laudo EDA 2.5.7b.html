@@ -1,0 +1,974 @@
+<html lang"pt"=""><head>
+	<meta charset="UTF-8">
+	<meta name="viewport" content="width=device-width, initial-scale=1.0">
+	<title>Gerar Laudo EDA 2.5.7a</title>
+    <script>
+        var filename = decodeURIComponent(window.location.pathname.split('/').pop().split('.html')[0]);
+        filename = filename.replace(/%20/g, ' ');
+        document.title = filename;
+    </script>
+	<link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/smoothness/jquery-ui.css">
+	<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+	<script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+	</head>
+
+<body><h3>ENDOSCOPIA DIGESTIVA ALTA<br><br></h3>
+
+<style>
+  body {
+	background-color: #E4E9F3;
+    font-family: Arial;
+    font-size: 14px;
+  }
+input[type=checkbox] {
+    width: 15px;
+    height: 15px;
+}
+
+#sortable-equipamento,
+#sortable-sedacao,
+#sortable-esofago,
+#sortable-estomago,
+#sortable-Duodeno,
+#sortable-jejuno,
+#sortable-conclusao,
+#sortable-outros {
+    list-style-type: none;
+    margin: 0;
+    padding: 0;
+}
+
+#sortable-equipamento .item,
+#sortable-sedacao .item,
+#sortable-esofago .item,
+#sortable-estomago .item,
+#sortable-Duodeno .item,
+#sortable-jejuno .item,
+#sortable-conclusao .item,
+#sortable-outros .item {
+    display: inline-block;
+    margin-right: 3px;
+    margin-bottom: 5px;
+    border: 1px solid #ccc;
+    padding: 5px;
+}
+#popup {
+  width: 1000px;
+  height: 500px;
+  overflow: auto;
+}
+#checkbox-list {
+  height: 350px;
+  overflow: auto;
+}
+.checkbox-item {
+  flex: 0 0 auto;
+}
+  .bold {
+    font-weight: bold;
+}
+.flex-container {
+  display: flex;
+  align-items: center;
+}
+.my-textarea {
+  font-family: Arial;
+  font-size: 16px;
+  width: 75%;
+  height: 300px;
+  border-radius: 5px;
+  border: 1px solid #ccc;
+  padding: 10px;
+  background: white;
+  overflow: auto;
+}
+	.popup {
+	position: fixed;
+	top: 50%;
+	left: 50%;
+	transform: translate(-50%, -50%);
+	width: 1000px;
+	height: 500px;
+	background-color: #D3D3D3;
+	border: 1px solid #000;
+	padding: 20px;
+	display: none;
+	z-index: 9999;
+	}
+
+  h2 {
+    font-size: 14px; /* set the font size of the h2 element */
+    font-weight: bold; /* set the font weight of the h2 element */
+	font-family: Arial; /* set the font family of the h2 element */
+		  display: inline;
+  }
+  h3 {
+      font-size: 18px;
+	  font-weight: Bold;
+	  font-family: Arial;
+	  display: inline;
+    }
+#sedacao-sortable {
+	display: none;
+}
+</style>	
+	
+	Nome do arquivo:
+	<input type="text" id="fileName" value="">
+    <script>
+        document.getElementById('fileName').value = document.title;
+    </script>
+	<button onclick="saveCode()">Salvar</button><br><br>
+
+	<script> // salvar programa
+  function saveCode() {
+    var fileName = document.getElementById("fileName").value;
+  
+    // Clear the contents of the output element
+    var output = document.getElementById("output");
+    output.innerHTML = "";
+
+    var code = document.documentElement.outerHTML;
+    var blob = new Blob([code], {type: "text/html"});
+    var link = document.createElement("a");
+    link.download = fileName + ".html";
+    link.href = URL.createObjectURL(blob);
+    link.click();
+  }
+	</script>
+	
+	<button style="font-size: 14px; font-weight: Bold; padding: 10px;" onclick="uncheckAll()">Limpar Seleção</button>
+
+<button style="font-size: 14px; font-weight: Bold; padding: 10px;" onclick="showPopup()">Editar Item</button>
+<button style="font-size: 14px; font-weight: Bold; padding: 10px;" onclick="deleteCheckedCheckboxes()">Excluir Item</button>
+
+<div class="popup" id="popup" style="display: none;">
+<h3>Editar Item</h3>
+    <div id="checkbox-list"><div><strong><br>Nome do Item:<br><br></strong> <textarea style="height: 25px; width: 200px" class="checkbox-label" onchange="updateCheckboxLabel(this, &quot;Pinça-sortable-conclusao&quot;)">Pinça</textarea></div><div><strong><br>Texto da entrada:<br><br></strong> <textarea style="height: 75px; width: 900px" class="checkbox-value" onchange="updateCheckboxValue(this, &quot;Pinça-sortable-conclusao&quot;)">&lt;br&gt;Material especial: pinça de biópsia.</textarea></div><div><strong><br>Nome do Item:<br><br></strong> <textarea style="height: 25px; width: 200px" class="checkbox-label" onchange="updateCheckboxLabel(this, &quot;Pinça-sortable-conclusao&quot;)">Pinça</textarea></div><div><strong><br>Texto da entrada:<br><br></strong> <textarea style="height: 75px; width: 900px" class="checkbox-value" onchange="updateCheckboxValue(this, &quot;Pinça-sortable-conclusao&quot;)">Material especial: pinça de biópsia.</textarea></div></div>
+    <br><br>
+	<button style="font-size: 16px; font-weight: Bold; padding: 12px;" onclick="hidePopup()">Fechar</button>
+	<button style="font-size: 16px; font-weight: Bold; padding: 12px;" onclick="deleteCheckedCheckboxes()">Excluir Item</button>
+</div>
+
+<script> // deletar checkbox
+function deleteCheckedCheckboxes() {
+  // Get all checkboxes on the page
+  var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+  
+  // Iterate over the checkboxes
+  checkboxes.forEach(function(checkbox) {
+    // Check if the checkbox is checked
+    if (checkbox.checked) {
+      // Get the parent item div and remove it
+      var itemDiv = checkbox.parentNode;
+      itemDiv.parentNode.removeChild(itemDiv);
+    }
+  });
+}
+
+// Call the function to delete the checked checkboxes
+deleteCheckedCheckboxes();
+
+</script>
+
+<script> //editar checkbox
+    let originalValues = {};
+
+    function showPopup() {
+        let checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+        let checkboxList = "";
+        for (let i = 0; i < checkboxes.length; i++) {
+            let checkboxValue = checkboxes[i].value;
+            let checkboxLabel = document.querySelector('label[for="' + checkboxes[i].id + '"]').innerHTML;
+            checkboxList += "<div><strong><br>Nome do Item:<br><br></strong> <textarea style='height: 25px; width: 200px' class='checkbox-label' onchange='updateCheckboxLabel(this, \"" + checkboxes[i].id + "\")'>" + checkboxLabel + "</textarea></div>";
+            checkboxList += "<div><strong><br>Texto da entrada:<br><br></strong> <textarea style='height: 75px; width: 900px' class='checkbox-value' onchange='updateCheckboxValue(this, \"" + checkboxes[i].id + "\")'>" + checkboxValue + "</textarea></div>";
+            originalValues[checkboxes[i].id] = {
+                label: checkboxLabel,
+                value: checkboxValue
+            };
+        }
+        if (checkboxList === "") {
+            checkboxList = "<div>No checkboxes selected</div>";
+        }
+        document.getElementById("checkbox-list").innerHTML = checkboxList;
+        document.getElementById("popup").style.display = "block";
+    }
+
+    function hidePopup() {
+        document.getElementById("popup").style.display = "none";
+    }
+
+    function updateCheckboxLabel(input, checkboxId) {
+        let checkboxLabel = document.querySelector('label[for="' + checkboxId + '"]');
+        originalValues[checkboxId] = checkboxLabel.innerHTML;
+        checkboxLabel.innerHTML = input.value;
+    }
+
+    function updateCheckboxValue(textarea, checkboxId) {
+        let checkbox = document.getElementById(checkboxId);
+        originalValues[checkboxId] = checkbox.value;
+        checkbox.value = textarea.value;
+    }
+
+    function saveChanges() {
+        let checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+        for (let i = 0; i < checkboxes.length; i++) {
+            let checkboxId = checkboxes[i].id;
+            let checkboxValue = checkboxes[i].value;
+            let updatedValue = checkboxValue;
+            if (checkboxValue !== originalValues[checkboxId].value) {
+                updatedValue = originalValues[checkboxId].value + " (updated to: " + checkboxValue + ")";
+            }
+            let checkboxLabel = document.querySelector('label[for="' + checkboxId + '"]');
+            let updatedLabel = checkboxLabel.querySelector('.checkbox-label').value;
+            checkboxLabel.innerHTML = updatedLabel;
+            console.log(checkboxId + ": " + updatedValue);
+        }
+        document.getElementById("popup").style.display = "none";
+    }
+</script>
+
+<button style="font-size: 14px; font-weight: bold; padding: 10px;" onclick="showCreatePopup()">Criar Item</button>
+
+<div class="popup" id="create-popup" style="display: none;">
+  <h3>Criar novo item</h3>
+  <label for="section-select"><span class="bold" style="font-size: 16px;"><br><br><br>Selecionar a seção:</span></label>
+    <select id="section-select">
+	<option value="sortable-equipamento">Equipamento</option>
+    <option value="sortable-sedacao">Sedação</option>
+    <option value="sortable-esofago">Esôfago</option>
+    <option value="sortable-estomago">Estômago</option>
+    <option value="sortable-duodeno">Duodeno</option>
+    <option value="sortable-jejuno">Jejuno</option>
+    <option value="sortable-conclusao">Conclusão</option>
+	<option value="sortable-outros">Outros</option>
+  </select>
+  <label for="checkbox-name"><br><br><strong>Nome do item:</strong></label><br><br>
+  <textarea id="checkbox-name"></textarea>
+  <label for="checkbox-value"><br><br><strong>Texto:</strong></label><br><br>
+  <textarea style="height: 150px; width: 800px" id="checkbox-value"></textarea><br><br><br>
+  <button style="font-size: 14px; font-weight: bold; padding: 10px;" onclick="createCheckbox()">Criar</button>
+  <button style="font-size: 14px; font-weight: bold; padding: 10px;" onclick="hideCreatePopup()">Cancelar</button>
+</div>
+
+<script> //criar item
+function showCreatePopup() {
+  var createPopup = document.getElementById("create-popup");
+  createPopup.style.display = "block";
+}
+
+function hideCreatePopup() {
+  document.getElementById("create-popup").style.display = "none";
+}
+
+function createCheckbox() {
+  var checkboxName = document.getElementById("checkbox-name").value;
+  var checkboxValue = document.getElementById("checkbox-value").value;
+  var sectionSelect = document.getElementById("section-select");
+  var sectionId = sectionSelect.value;
+  var section = document.getElementById(sectionId);
+
+  var div = document.createElement("div");
+  div.className = "item";
+
+  var checkbox = document.createElement("input");
+  checkbox.type = "checkbox";
+  checkbox.name = checkboxName;
+  checkbox.value = checkboxValue;
+  checkbox.id = checkboxName + "-" + sectionId;
+
+  var label = document.createElement("label");
+  label.htmlFor = checkbox.id;
+  label.setAttribute("contenteditable", "true");
+  label.innerHTML = checkboxName;
+
+  div.appendChild(checkbox);
+  div.appendChild(label);
+
+  // Create a text node for line break
+  var lineBreak = document.createTextNode("\n");
+
+  section.appendChild(lineBreak); // Insert line break
+  section.appendChild(div); // Append the new item to the correct sortable container
+
+  document.getElementById("create-popup").style.display = "none";
+}
+</script>
+
+<main>
+<br><hr>
+<section id="Equipamento" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Equipamento: </span>	
+	
+	<div id="sortable-equipamento" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="EG-760Z" name="EG-760Z" value="Exame realizado com equipamento Fujifilm EG-760Z, que possui magnificação de imagem e cromoscopia digital.">
+	<label for="EG-760Z" contenteditable="true">EG-760Z</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="EG-590Z" value="Exame realizado com equipamento Fujifilm EG-590Z, que possui magnificação de imagem e cromoscopia digital." id="EG-590Z-sortable-equipamento"><label for="EG-590Z-sortable-equipamento" contenteditable="true">EG-590Z</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="170" value="Exame realizado com equipamento Olympus GIF-H170, que possui imagem HD e cromoscopia digital." id="170-sortable-equipamento"><label for="170-sortable-equipamento" contenteditable="true">GIF-H170</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="GIF-H180" value="Exame realizado com equipamento Olympus GIF-H180, que possui imagem HD e cromoscopia digital." id="GIF-H180-sortable-equipamento"><label for="GIF-H180-sortable-equipamento" contenteditable="true">GIF-H180</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="GIF-H190" value="Exame realizado com equipamento Olympus GIF-H190, que possui imagem HD e cromoscopia digital." id="GIF-H190-sortable-equipamento"><label for="GIF-H190-sortable-equipamento" contenteditable="true">GIF-H190</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="GIF-HQ190" value="Exame realizado com equipamento Olympus GIF-HQ190, que possui imagem HD, near focus e cromoscopia digital." id="GIF-HQ190-sortable-equipamento"><label for="GIF-HQ190-sortable-equipamento" contenteditable="true">GIF-HQ190</label></div></div>
+</section>
+
+<br><hr>
+<section id="Sedação" class="flex-container">
+    <span class="bold" style="font-size: 20px;">Sedação:&nbsp;</span>	
+    <div id="sortable-sedacao" class="ui-sortable">
+        <div class="item ui-sortable-handle">
+            <input type="checkbox" id="sedacao-sortable" name="sedacao" data-label="sedacao" value="">
+            <span>&nbsp;Fentanil&nbsp;</span>
+            <select id="fentanil">
+                <option value="50mcg">50mcg</option>
+                <option value="75mcg">75mcg</option>
+                <option value="100mcg">100mcg</option>
+                <option value="">-</option>
+            </select>
+            <span>&nbsp;+ Midazolam&nbsp;</span>
+            <select id="midazolam">
+			<option value="">-</option>
+                <option value=" + Midazolam 1mg">1mg</option>
+                <option value=" + Midazolam 2mg">2mg</option>
+				<option value=" + Midazolam 2,5mg">2,5mg</option>
+                <option value=" + Midazolam 3mg">3mg</option>
+                <option value=" + Midazolam 4mg">4mg</option>
+                <option value=" + Midazolam 5mg">5mg</option>
+            </select>
+            <span>&nbsp;+ Propofol titulado&nbsp;</span>
+            <button style="font-size: 14px; font-weight: bold; padding: 10px;" onclick="addParametersedacao()">Adicionar checkbox</button>
+        </div>
+        <div class="item ui-sortable-handle" style="">
+            <input type="checkbox" id="anestesista" name="anestesista" value="equipe de anestesiologia.">
+            <label for="anestesista">Anestesista</label>
+        </div>
+        <div class="item ui-sortable-handle">
+            <input type="checkbox" name="UTI" value="equipe intensivista." id="UTI">
+            <label for="UTI" contenteditable="true">UTI</label>
+        </div>
+    </div>
+</section>
+
+	<br><hr>
+	<section id="Esôfago" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Esôfago: </span>
+	<div id="sortable-esofago" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox4" name="Esôfago Normal" data-label="Normal" value="calibre e distensibilidade preservados. Ausência de lesões de mucosa. A transição esofagogástrica coincide com o pinçamento diafragmático.">
+	<label for="checkbox4" contenteditable="true">Normal</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox5" name="LAA" value="calibre e distensibilidade preservados. Presença de erosões menores que 5 mm ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.">
+	<label for="checkbox5" contenteditable="true" "="">LAA</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox6" name="LAB" value="calibre e distensibilidade preservados. Presença de erosões lineares não confluentes maiores que 5 mm ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.">
+	<label for="checkbox6" contenteditable="true">LAB</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox7" name="LAC" value="calibre e distensibilidade preservados. Presença de erosões maiores que 5 mm, confluindo e ocupando cerca de 40% da circunferência, ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.">
+	<label for="checkbox7" contenteditable="true">LAC</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox8" name="LAD" value="calibre e distensibilidade preservados. Presença de erosões maiores que 5 mm, confluindo e ocupando toda a circunferência do órgão ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.">
+	<label for="checkbox8" contenteditable="true">LAD</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox9" name="HH" value="calibre e distensibilidade preservados. Ausência de lesões de mucosa. A transição esofagogástrica está deslocada cerca de 2cm acima do pinçamento diafragmático.">
+	<label for="checkbox9" contenteditable="true">HHD</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox10" name="HH+LAA" value="calibre e distensibilidade preservados. Presença de erosões menores que 5mm ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático.">
+	<label for="checkbox10" contenteditable="true">HH+LAA</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="HH+LAB" value="calibre e distensibilidade preservados. Presença de erosões lineares não confluentes mairoes que 5mm ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático." id="HH+LAB-sortable-esofago"><label for="HH+LAB-sortable-esofago" contenteditable="true">HH+LAB</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="HH+LAC" value="calibre e distensibilidade preservados. Presença de erosões que confluem ocupando cerca de 40% da circunferência ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático." id="HH+LAC-sortable-esofago"><label for="HH+LAC-sortable-esofago" contenteditable="true">HH+LAC</label></div><div class="item ui-sortable-handle"><input type="checkbox" id="esofne" name="Esof NE" value="calibre e distensibilidade preservados. A mucosa apresenta edema no terço distal, porém sem erosões. A transição esofagogástrica coincide com o pinçamento diafragmático.">
+	<label for="esofne" contenteditable="true">Esof NE</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="Barrett" name="Barrett" value="calibre e distensibilidade preservados. Presença de digitação de mucosa de aspecto colunar medindo cerca de 10mm; realizada avaliação com cromoscopia digital e biópsia. A transição esofagogástrica coincide com o pinçamento diafragmático.">
+	<label for="Barrett" contenteditable="true">Barrett</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="HH+Barrett" value="calibre e distensibilidade preservados. Presença de digitações de mucosa com aspecto colunar medindo até cerca de 10mm a partir da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático. Realizada cromoscopia com ácido acético, não sendo identificadas áreas suspeitas para displasia. Biópsias." id="HH+Barrett-sortable-esofago"><label for="HH+Barrett-sortable-esofago" contenteditable="true">HH+Barrett</label></div><div class="item ui-sortable-handle"><input type="checkbox" name="Varizes" value="calibre e distensibilidade preservados. Ausência de lesões de mucosa. Presença de cordões varicosos retilíneos e azulados medindo cerca de 5mm, sem sinais de cor vermelha, no terço distal. A transição esofagogástrica coincide com o pinçamento diafragmático." id="Varizes-sortable-esofago"><label for="Varizes-sortable-esofago" contenteditable="true">Varizes</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Lig Varizes" value="calibre e distensibilidade preservados. Ausência de lesões de mucosa. Presença de dois cordões varicosos tortuosos e de coloração arroxeada apresentando pontos avermelhados no terço distal. A transição esofagogástrica coincide com o pinçamento diafragmático.<br><br>Realizada ligadura elástica após exame dos demais segmentos sem intercorrências." id="Lig Varizes-sortable-esofago"><label for="Lig Varizes-sortable-esofago" contenteditable="true">Lig Varizes</label></div>
+
+<div class="item ui-sortable-handle"><input type="checkbox" name="Esof em resol" value="calibre e distensibilidade preservados. Presença de erosões reparadas ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático." id="Esof em resol-sortable-esofago"><label for="Esof em resol-sortable-esofago" contenteditable="true">Esof em resol</label></div>
+
+</div>
+	</section>
+	
+	<br><hr>
+	<section id="Estômago" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Estômago: </span>
+	
+	<div id="sortable-estomago" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox11" name="Estômago Normal" data-label="Normal" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa está preservada em todos os segmentos. Incisura angular sem alterações. Piloro centrado e pérvio.">
+	<label for="checkbox11" contenteditable="true">Normal</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox12" name="Pang en leve" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta edema e enantema discretos difusamente. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox12" contenteditable="true">Pang en leve</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox13" name="Pang en mod" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta edema e enantema moderados difusamente com pontos de sufusão hemorrágica no centro de áreas gástricas no corpo, aspecto correlacionado com infecção por H. pylori. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox13" contenteditable="true">Pang en mod</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox14" name="Pang en eros ant" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta edema e enantema moderados difusamente com erosões planas no antro. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox14" contenteditable="true">Pang en eros ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox15" name="Gast en ant" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa está preservada em fundo e corpo, notando-se enantema discreto no antro. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox15" contenteditable="true">Gast en ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox16" name="Gast eros ant" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa está preservada em fundo e corpo, notando-se raras erosões planas recobertas por fibrina no antro. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox16" contenteditable="true">Gast eros ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox17" name="Pang eros" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta algumas erosões planas recobertas por fibrina em corpo e antro. Incisura angular sem lesões. Piloro centrado e pérvio.">
+	<label for="checkbox17" contenteditable="true">Pang eros</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="polgast" name="Pol gast" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa está preservada em todos os segmentos, exceto por alguns pólipos sésseis medindo até 5mm no corpo gástrico; realizadas polipectomias de dois deles para amostragem. Incisura angular sem alterações. Piloro centrado e pérvio.">
+	<label for="polgast" contenteditable="true">Pol gast</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Restos alim" value="Presença de moderada quantidade de restos alimentares sólidos em câmara gástrica. Optado por interrupção do exame devido a risco de broncoaspiração." id="Restos alim-sortable-estomago"><label for="Restos alim-sortable-estomago" contenteditable="true">Restos alim</label></div>
+	<br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox18" name="GCA C-1 gast at" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta enantema e edema discretos e difusos no corpo. Na incisura angular e antro, o enantema é entremeado por áreas de palidez com relevo reduzido. Piloro centrado e pérvio.">
+	<label for="checkbox18" contenteditable="true">GCA C-1 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox19" name="GCA C-1" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa está relativamente preservada em fundo e corpo. Na incisura angular e antro, a mucosa é discretamente pálida com relevo reduzido (Kimura-Takemoto C-1), aspecto compatível com quadro de infecção prévia por H. pylori (pós-tratamento). Piloro centrado e pérvio.">
+	<label for="checkbox19" contenteditable="true">GCA C-1</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox20" name="GCA C-2 gast at" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta enantema e edema discretos e difusos, notando-se enantema entremeado por áreas de pálidez e relevo reduzido na pequena curvatura do corpo distal, incisura angular e antro. Piloro centrado e pérvio.">
+	<label for="checkbox20" contenteditable="true">GCA C-2 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox21" name="GCA C-2" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta aspecto relativamente preservado na maior parte do corpo com área pálida e relevo reduzido na pequena curvatura do corpo distal, incisura angular e todo o antro. Piloro centrado e pérvio.">
+	<label for="checkbox21" contenteditable="true">GCA C-2</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox22" name="GCA C-3 gast at" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta enantema e edema moderados e difusos na maior parte do corpo com área pálida e relevo reduzido na pequena curvatura do corpo, incisura angular e todo o antro. Piloro centrado e pérvio.">
+	<label for="checkbox22" contenteditable="true">GCA C-3 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="GCAC3" name="GCA C-3" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta aspecto relativamente preservado na maior parte do corpo com área pálida e relevo reduzido na pequena curvatura do corpo, incisura angular e todo o antro. Piloro centrado e pérvio.">
+	<label for="GCAC3" contenteditable="true">GCA C-3</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gcao1" name="GCA O-1" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso normotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta-se pálida com relevo reduzido em parte do corpo, incisura angular e todo o antro, onde podem ser observadas placas discretamente elevadas com tênue depressão central de coloração avermelhada, compatíveis com metaplasia intestinal. Piloro centrado e pérvio.">
+	<label for="gcao1" contenteditable="true">GCA O-1</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gcao2" name="GCA O-2" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso hipotrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta-se pálida com relevo reduzido e vasos submucosos evidentes na maior parte do corpo, incisura angular e todo o antro, onde podem ser observadas placas discretamente elevadas com tênue depressão central de coloração avermelhada, compatíveis com metaplasia intestinal. Piloro centrado e pérvio.">
+	<label for="gcao2" contenteditable="true">GCA O-2</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gcao3" name="GCA O-3" value="volume e distensibilidade preservados. Líquido claro em volume regular. Pregueado mucoso atrófico. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta-se pálida com relevo reduzido e vasos submucosos evidentes em todos os segmentos. No antro, podem ser observadas placas discretamente elevadas com tênue depressão central de coloração avermelhada, compatíveis com metaplasia intestinal. Piloro centrado e pérvio.">
+	<label for="gcao3" contenteditable="true">GCA O-3</label></div>
+	<br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox23" name="Fundop" value="volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. À retroversão, nota-se fundoplicatura tópica e continente. A mucosa está preservada em todos os segmentos. Incisura angular sem alterações. Piloro centrado e pérvio.">
+	<label for="checkbox23" contenteditable="true">Fundop</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastrecty" name="Gastrect Y" value="presença de conteúdo líquido bilioso em moderada quantidade. A câmara gástrica residual mede cerca de 10cm pela pequena curvatura. A mucosa apresenta edema e enantema moderados difusamente, com algumas placas amareladas compatíveis com xantoma. À retroversão, o hiato diafragmático está ajustado ao aparelho. Anastomose gastrojejunal termino-lateral com cerca de 20mm sem lesões associadas; realizadas biópsias de anastomose. ">
+	<label for="gastrecty" contenteditable="true">Gastrect Y</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastrectBII" name="Gastrect BII" value="presença de conteúdo líquido bilioso em moderada quantidade. A câmara gástrica residual mede cerca de 10cm pela pequena curvatura. A mucosa apresenta edema e enantema moderados difusos, com algumas placas amareladas compatíveis com xantoma. À retroversão, o hiato diafragmático está ajustado ao aparelho. Anastomose gastrojejunal termino-lateral com cerca de 20mm sem lesões associadas. ">
+	<label for="gastrectBII" contenteditable="true">Gastrect BII</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox24" name="Bypass" value="câmara gástrica residual medindo cerca de 2,5cm pela pequena curvatura, apresentando mucosa preservada. Anastomose gastrojejunal terminolateral com cerca de 1,5cm, sem lesões.">
+	<label for="checkbox24" contenteditable="true">Bypass</label></div>
+	
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Gastrop vert" value="ausência de grande curvatura do corpo por cirurgia prévia. Líquido claro em pequeno volume. A mucosa está preservada em todos os segmentos. Transição corpo-antro apresentando angulação habitual. Piloro centrado e pérvio." id="Gastrop vert-sortable-estomago"><label for="Gastrop vert-sortable-estomago" contenteditable="true">Gastrop vert</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Gastrop vert+Pang en leve" value="ausência de grande curvatura do corpo por cirurgia prévia. Líquido claro em pequeno volume. A mucosa apresenta edema e enantema discretos em todos os segmentos. Transição corpo-antro apresentando angulação habitual. Piloro centrado e pérvio." id="Gastrop vert+Pang en leve-sortable-estomago"><label for="Gastrop vert+Pang en leve-sortable-estomago" contenteditable="true">Gastrop vert+Pang en leve</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox25" name="Santoro" value="volume discretamente reduzido em consequência de ressecção cirúrgica de grande curvatura do corpo, observando-se retração cicatricial nesta topografia. Líquido claro em pequeno volume. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta edema e enantema discretos em todos os segmentos. Incisura angular sem lesões. Na grande curvatura da transição corpo-antro, encontra-se anastomose gastroenteral medindo cerca de 10-15mm, sem lesões; alça enteral percorrida por cerca de 15cm, sem lesões. Antro anatomicamente preservado e piloro pérvio.">
+	<label for="checkbox25" contenteditable="true">Santoro</label></div>
+	
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Desc. GTT" value="Sinais de transiluminação e digitopressão presentes em parede anterior do corpo médio.<br>Antissepsia e colocação de campos.<br>Anestesia local com lidocaína tópica a 2%.<br>Punção com gelco sob visão endoscópica em ponto previamente demarcado.<br>Passagem de sonda de gastrostomia 20FR por técnica de tração, fixada com anteparo justo à parede anterior do corpo gástrico e móvel à rotação com marca de 3cm ao nível da pele.<br>Curativo oclusivo." id="Desc. GTT-sortable-estomago"><label for="Desc. GTT-sortable-estomago" contenteditable="true">Desc. GTT</label></div></div>
+	</section>
+
+<br><hr>
+	<section id="Duodeno" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Duodeno: </span>
+	
+	<div id="sortable-duodeno" class="ui-sortable">
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox26" name="Duodeno Normal" data-label="Normal" value="bulbo amplo e sem retrações, com mucosa preservada. Início da segunda porção sem alterações.">
+	<label for="checkbox26" contenteditable="true">Normal</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox27" name="BD en" value="bulbo amplo e sem retrações, apresentando enantema discreto. Início da segunda porção sem alterações.">
+	<label for="checkbox27" contenteditable="true">BD en</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox28" name="BD eros" value="bulbo amplo e sem retrações, apresentando algumas erosões planas recobertas por fibrina. Início da segunda porção sem alterações.">
+	<label for="checkbox28" contenteditable="true">BD eros</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox29" name="Cic bulb" value="bulbo amplo com retração cicatricial em parede anterossuperior de sua porção média, delimitando pseudodivertículo. Início da segunda porção sem alterações.">
+	<label for="checkbox29" contenteditable="true">Cic bulb</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox30" name="Div 2a" value="bulbo amplo e sem retrações, com mucosa preservada. Presença de óstio diverticular em início da segunda porção, adjacente à papila duodenal maior.">
+	<label for="checkbox30" contenteditable="true">Div 2a</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="SNE" value="<br>Realizada passagem de sonda de Dobbhoff pelo óstio nasal direito com extremidade distal locada em segunda porção duodenal. Retirada de fio guia e fixação com sonda retificada em orofaringe." id="SNE-sortable-duodeno"><label for="SNE-sortable-duodeno" contenteditable="true">SNE</label></div></div>
+	<br><br>
+	</section>
+	
+	<section id="Jejuno" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Jejuno: </span>
+	
+	<div id="sortable-jejuno" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastropvertjej" name="Gastrect BII" value="alça aferente longa, voltada para grande curvatura, apresentando conteúdo bilioso e terminando em fundo cego sem lesões. Alça eferente voltada para pequena curvatura, percorrida por cerca de 20cm, sem lesões.">
+	<label for="gastropvertjej" contenteditable="true">Gastrect BII</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="jejbypass" name="Bypass" value="alça aferente curta em fundo cego voltada para grande curvatura e sem lesões. Alça eferente voltada para pequena curvatura, percorrida por cerca de 20cm, sem lesões.">
+	<label for="jejbypass" contenteditable="true">Bypass</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastrect y jejuno" name="Gastrect Y" value="alça aferente curta em fundo cego voltada para grande curvatura e sem lesões. Alça eferente voltada para pequena curvatura, percorrida por cerca de 20cm, sem lesões.">
+	<label for="jejbypass" contenteditable="true">Gastrect Y</label></div>
+	</div>
+	</section>
+
+<br><hr>	
+	<section id="Conclusão" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Conclusão: </span>
+	
+	<div id="sortable-conclusao" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="concnormal" name="Conclusão Normal" value="- Exame dentro dos padrões de normalidade.">
+    <label for="concnormal" contenteditable="true">Normal</label></div>
+    <div class="item ui-sortable-handle"><input type="checkbox" id="checkbox31" name="LAA" value="- Esofagite erosiva distal leve - Los Angeles A.">
+    <label for="checkbox31" contenteditable="true">LAA</label></div>
+    <div class="item ui-sortable-handle"><input type="checkbox" id="checkbox32" name="LAB" value="- Esofagite erosiva distal moderada - Los Angeles B.">
+    <label for="checkbox32" contenteditable="true">LAB</label>    </div>
+    <div class="item ui-sortable-handle"><input type="checkbox" id="checkbox33" name="LAC" value="- Esofagite erosiva distal moderada - Los Angeles C.">
+    <label for="checkbox33" contenteditable="true">LAC</label>    </div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox34" name="LAD" value="- Esofagite erosiva distal intensa - Los Angeles D.">
+	<label for="checkbox34" contenteditable="true">LAD</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="esofneconc" name="Esof NE" value="- Esofagite não erosiva.">
+	<label for="esofneconc" contenteditable="true">Esof NE</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Esof em resol" value="- Esofagite erosiva distal em resolução." id="Esof em resol-sortable-conclusao"><label for="Esof em resol-sortable-conclusao" contenteditable="true">Esof em resol</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox35" name="HH" value="- Hérnia hiatal por deslizamento.">
+	<label for="checkbox35" contenteditable="true">HHD</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="Barrett" name="Barrett" value="- Digitação de mucosa colunar em esôfago distal (sugestivo de esôfago de Barrett - Praga C0M1).">
+	<label for="checkbox36" contenteditable="true">Barrett</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Varizes" value="- Varizes esofágicas de médio calibre. Sem necessidade de tratamento endoscópico no momento." id="Varizes-sortable-conclusao"><label for="Varizes-sortable-conclusao" contenteditable="true">Varizes</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Lig Varizes" value="- Ligadura elástica de varizes esofágicas. Revisão endoscópica em 6 semanas. Prescrito IBP por 14 dias e realizadas orientações de dieta, repouso relativo e de sinais de alerta." id="Lig Varizes-sortable-conclusao"><label for="Lig Varizes-sortable-conclusao" contenteditable="true">Lig Varizes</label></div><br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox37" name="Pang en leve" value="- Pangastrite enantematosa leve.">
+	<label for="checkbox37" contenteditable="true">Pang en leve</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox38" name="Pang en mod" value="- Pangastrite enantematosa moderada.">
+	<label for="checkbox38" contenteditable="true">Pang en mod</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox39" name="Pang en eros ant" value="- Pangastrite enantematosa com erosões no antro.">
+	<label for="checkbox39" contenteditable="true">Pang en eros ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox40" name="Gast en ant" value="- Gastrite enantematosa leve do antro.">
+	<label for="checkbox40" contenteditable="true">Gast en ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox41" name="Gast eros ant" value="- Gastrite erosiva leve do antro.">
+	<label for="checkbox41" contenteditable="true">Gast eros ant</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox42" name="Pang eros" value="- Pangastrite erosiva moderada.">
+	<label for="checkbox42" contenteditable="true">Pang eros leve</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="polgastconc" name="Pol gast" value="- Pólipos em corpo gástrico. Polipectomias de amostragem.">
+	<label for="polgastconc" contenteditable="true">Pol gast</label></div><br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox43" name="GCA C-1 gast at" value="- Pangastrite em cronificação (Kimura-Takemoto C-1). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox43" contenteditable="true">GCA C-1 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox44" name="GCA C-1" value="- Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox44" contenteditable="true">GCA C-1</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox45" name="GCA C-2 gast at" value="- Pangastrite em cronificação (Kimura-Takemoto C-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox45" contenteditable="true">GCA C-2 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox46" name="GCA C-2" value="- Gastrite crônica com área de atrofia inicial (Kimura-Takemoto C-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox46" contenteditable="true">GCA C-2</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox47" name="GCA C-3 gast at" value="- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto C-3) e gastrite ativa. Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox47" contenteditable="true">GCA C-3 gast at</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox48" name="GCA C-3" value="- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto C-3). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox48" contenteditable="true">GCA C-3</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox49" name="GCA O-1" value="- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto O-1). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox49" contenteditable="true">GCA O-1</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox50" name="GCA O-2" value="- Gastrite crônica com área extensa de atrofia (Kimura-Takemoto O-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="checkbox50" contenteditable="true">GCA O-2</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gcao3conc" name="GCA O-3" value="- Gastrite crônica atrófica (Kimura-Takemoto O-3). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori.">
+	<label for="gcao3conc" contenteditable="true">GCA O-3</label></div><br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox51" name="Fundop" value="- Status pós-operatório de fundoplicatura gástrica.">
+	<label for="checkbox51" contenteditable="true">Fundop</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastrectYconc" name="Gastrect Y" value="- Status pós-operatório de gastrectomia parcial com reconstrução em Y de Roux.">
+	<label for="gastrectYconc" contenteditable="true">Gastrect Y</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="gastrectBIIconc" name="Gastrect BII" value="- Status pós-operatório de gastrectomia parcial com reconstrução à Billroth II.">
+	<label for="gastrectBIIconc" contenteditable="true">Gastrect BII</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox52" name="Bypass" value="- Status pós-operatório de bypass gástrico.">
+	<label for="checkbox52" contenteditable="true">Bypass</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox53" name="Gastrop vert" value="- Status pós-operatório de gastroplastia vertical.">
+	<label for="checkbox53" contenteditable="true">Gastrop vert</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="santoroconc" name="Santoro" value="- Status pós-operatório de gastroplastia por técnica de Santoro.">
+	<label for="santoroconc" contenteditable="true">Santoro</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Desc. GTT" value="- Realizada gastrostomia endoscópica sem intercorrências.
+" id="Desc. GTT-sortable-conclusao"><label for="Desc. GTT-sortable-conclusao" contenteditable="true">Desc. GTT</label></div><br class="ui-sortable-handle">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox54" name="BD en" value="- Bulboduodenite enantematosa leve.">
+	<label for="checkbox54" contenteditable="true">BD en</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="bderos" name="BD eros" value="- Bulboduodenite erosiva moderada.">
+	<label for="bderos" contenteditable="true">BD eros</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="Cicbulb" name="Cic bulb" value="- Cicatriz bulbar.">
+	<label for="Cicbulb" contenteditable="true">Cic bulb</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox56" name="Div 2a" value="- Divertículo em segunda porção duodenal.">
+	<label for="checkbox56" contenteditable="true">Div 2a</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="SNE" value="- Passagem de sonda nasoenteral." id="SNE-sortable-conclusao"><label for="SNE-sortable-conclusao" contenteditable="true">SNE</label></div><br class="ui-sortable-handle">
+	
+	<span class="bold ui-sortable-handle" style="font-size: 20px;">Biópsia: </span>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox57" name="Urease-" value="- Realizadas biópsias de corpo e antro para pesquisa de H. pylori pelo método da urease, que resultou negativo.">
+	<label for="checkbox57" contenteditable="true">Urease-</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox58" name="Urease+" value="- Realizadas biópsias de corpo e antro para pesquisa de H. pylori pelo método da urease, que resultou <b>POSITIVO</B>.">
+	<label for="checkbox58" contenteditable="true">Urease+</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox59" name="Histo" value="- Realizadas biópsias de corpo e antro para pesquisa de H. pylori pelo método histológico.">
+	<label for="checkbox59" contenteditable="true">Histo</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="bxduod" name="Bx HP e duod" value="- Realizadas biópsias gástricas para pesquisa de H. pylori e biópsias de bulbo e segunda porção duodenal.">
+	<label for="bxduod" contenteditable="true">Bx HP e duod</label></div>
+
+<div class="item ui-sortable-handle"><input type="checkbox" name="Obs IBP" value="<br>Obs: o uso de inibidores de bomba de prótons nos 7 dias que antecedem a endoscopia digestiva alta causa redução significante da sensibilidade dos testes de detecção de H. pylori." id="Obs IBP-sortable-conclusao"><label for="Obs IBP-sortable-conclusao" contenteditable="true">Obs IBP</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Obs ATB" value="<br>Obs: o uso de antibióticos nos 30 dias que antecedem a endoscopia digestiva alta causa redução significante da sensibilidade dos testes de detecção de H. pylori." id="Obs ATB-sortable-conclusao"><label for="Obs ATB-sortable-conclusao" contenteditable="true">Obs ATB</label></div>
+
+
+
+<div class="item ui-sortable-handle"><input type="checkbox" name="Alça" value="Material especial: alça de polipectomia." id="Alça-sortable-conclusao"><label for="Alça-sortable-conclusao" contenteditable="true">Alça</label></div>
+<div class="item" style=""><input type="checkbox" name="Pinça" value="<br>Material especial: pinça de biópsia." id="Pinça-sortable-conclusao"><label for="Pinça-sortable-conclusao" contenteditable="true">Pinça</label></div><div class="item ui-sortable-handle"><input type="checkbox" name="Marília" value="Obs: realizado por Dra. Marília Seber e acompanhado por Dr. Eduardo Ogawa." id="Marília-sortable-conclusao"><label for="Marília-sortable-conclusao" contenteditable="true">Marília</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Letícia" value="Obs: realizado por Dra. Letícia Volpe e acompanhado por Dr. Eduardo Ogawa." id="Letícia-sortable-conclusao"><label for="Letícia-sortable-conclusao" contenteditable="true">Letícia</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Valéria" value="Obs: realizado por Dra. Valéria e acompanhado por Dr. Eduardo Ogawa." id="Valéria-sortable-conclusao"><label for="Valéria-sortable-conclusao" contenteditable="true">Valéria</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Gabriela" value="Obs: realizado por Dra. Gabriela e acompanhado por Dr. Eduardo Ogawa." id="Gabriela-sortable-conclusao"><label for="Gabriela-sortable-conclusao" contenteditable="true">Gabriela</label></div>
+</div>
+	</section>
+	
+	<br><hr>	
+	<section id="Outros" class="flex-container">
+	<span class="bold" style="font-size: 20px;">Outros: </span>
+	
+	<div id="sortable-outros" class="ui-sortable">
+	<div class="item ui-sortable-handle"><input type="checkbox" id="atestadohomem" name="atestadohomem" value="<span class='bold'>ATESTADO MÉDICO</span><br><br><br><br>Atesto que o paciente foi submetido a exame com sedação hoje e deve permanecer afastado de suas atividades laborais pelo restante do dia.<br><br><br><br><br>CID-10: Z019">
+	<label for="atestadohomem" contenteditable="true">Atestado M</label></div>
+	<div class="item ui-sortable-handle"><input type="checkbox" id="atestadomulher" name="atestadomulher" value="<span class='bold'>ATESTADO MÉDICO</span><br><br><br><br>Atesto que a paciente foi submetida a exame com sedação hoje e deve permanecer afastada de suas atividades laborais pelo restante do dia.<br><br><br><br><br>CID-10: Z019">
+	<label for="atestadomulher" contenteditable="true">Atestado F</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Pantoprazol" value="<span class='bold'>Receituário Médico</span><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>" id="Pantoprazol-sortable-outros">
+<label for="Pantoprazol-sortable-outros" contenteditable="true">Pantoprazol</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Fiber mais" value="<span class='bold'>Receituário Médico</span><br><br><br><br>1. Fiber Mais<br><br>Misturar uma medida a um copo de água ou suco e tomar uma vez ao dia por 15 dias.<br><br><br>2- Buscopan composto gotas<br><br>Tomar 20 gotas de 6 em 6 horas, se tiver cólicas abdominais.<br><br><br>3- Proctyl pomada<br><br>Passar na região anal de 8 em 8 horas, se tiver desconforto anal." id="Fiber mais-sortable-outros">
+<label for="Fiber mais-sortable-outros" contenteditable="true">Fiber mais</label>
+</div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Cipro" value="<span class='bold'>Receituário Médico</span><br><br><br><br>1. Ciprofloxacino 500mg<br><br>Tomar um comprimido de 12 em 12 horas por 05 dias.<br><br><br>2- Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 07 dias.<br><br><br>3- Buscopan composto gotas<br><br>Tomar 20 gotas de 6 em 6 horas, se tiver cólicas abdominais.<br><br><br>" id="Cipro-sortable-outros">
+<label for="Cipro-sortable-outros" contenteditable="true">Cipro</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Pyloripac" value="<span class='bold'>Receituário Médico</span><br><br><br><br>1. Pantoprazol 20 mg <br><br>Tomar um comprimido de 12 em 12 horas por 14 dias (antes de iniciar tratamento com Pyloripac).<br><br><br>2. Pyloripac (Lansoprazol 30mg + Amoxicilina 500mg + Claritromicina 500mg)<br><br>Tomar de 12 em 12 horas por 14 dias.<br>- Amoxicilina 02 comprimidos<br>- Claritromicina 01 comprimido<br>- Lansoprazol 01 comprimido<br><br>Após término dos 14 dias iniciais, manter Lansoprazol 01 comprimido de 12 em 12 horas por mais 14 dias." id="Pyloripac-sortable-outros"><label for="Pyloripac-sortable-outros" contenteditable="true">Pyloripac</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="TTO HP gen" value="<span class='bold'>Receituário Médico</span><br><br><br><br>1- Omeprazol 20mg, Cápsula <br><br>Tomar 1 cápsula 20 minutos antes do café da manhã e do jantar por 30 dias.<br><br><br>2- Amoxicilina 500g, Comprimido<br><br>Tomar 2 comprimidos 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>3- Claritromicina 500mg, Comprimido<br><br>Tomar 1 comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>" id="TTO HP gen-sortable-outros"><label for="TTO HP gen-sortable-outros" contenteditable="true">TTO HP gen</label></div>
+<div class="item ui-sortable-handle"><input type="checkbox" name="Orientação pós-ligadura" value="<span class='bold'>ORIENTAÇÕES PÓS-LIGADURA ELÁSTICA DE VARIZES ESOFÁGICAS</span><br><br><br><br>
+Não ingerir alimentos quentes por três (3) dias; somente frios ou temperatura ambiente.<br><br>
+Somente ingerir alimentos líquidos por três (3) dias. Após, iniciar ingesta de alimentos pastosos aumentando progressivamente a consistência e acrescentando sólidos amassados e depois picados. Retornar a dieta normal após sete (7) dias do exame.<br><br>
+Não ingerir alimentos duros como talos ou pães de casca grossa por dez (10) dias.<br><br>
+Não realizar esforços físicos moderados a intensos por sete (7) dias. Pode realizar caminhada leve.<br><br>
+Não ingerir bebidas alcoólicas.<br><br>
+Utilizar medicações conforme a receita em anexo.<br><br>
+Em caso de dor torácica, febre ou sangramento (vômitos com sangue vivo e/ou coágulos ou fezes escurecidas, amolecidas e com cheiro forte) comparecer imediatamente a Pronto Atendimento (PA).
+" id="Orientação pós-ligadura-sortable-outros"><label for="Orientação pós-ligadura-sortable-outros" contenteditable="true">Orient ligadura</label></div>
+
+<div class="item ui-sortable-handle"><input type="checkbox" name="AP lesões" value="Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli." id="AP lesões-sortable-outros"><label for="AP lesões-sortable-outros" contenteditable="true">AP lesões</label></div>
+<div class="item ui-sortable-handle" style=""><input type="checkbox" name="AP GCA" value="1- bx de antro - pesquisa de H. pylori e atrofia
+2- bx de copro gástrico - pesquisa de H. pylori e atrofia
+
+
+Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli." id="AP GCA-sortable-outros"><label for="AP GCA-sortable-outros" contenteditable="true">AP GCA</label></div><div class="item ui-sortable-handle"><input type="checkbox" name="Lesões pós" value="ORIENTAÇÕES PÓS-TERAPÊUTICA ENDOSCÓPICA EM AMBULATÓRIO DE LESÕES:
+
+* Aguardar contato da Sra. Marina (AMB de lesões) e equipe médica da endoscopia para teleconsulta com informações sobre resultados da biópsias, necessidade de complementação terapêutica e programação de controle colonoscópico. NÃO É NECESSÁRIO AGENDAMENTO DE CONSULTA COM ESPECIALISTA ANTES DO NOSSO CONTATO.
+
+Para dúvidas, telefone corporativo Ambulatório de Lesões (Marina e Juliana): (11) 95324-4041
+
+Orientações:
+1. Dieta líquida ou pastosa com temperatura morna ou fria por 7 dias;
+2. Não realizar atividade física por 15 dias;
+3. Evitar exposição ao sol por períodos prolongados;
+4. Em caso de vômitos com sangue e coágulos, evacuação preta, tipo borra de café, com odor fétido ou dor abdominal intensa, procurar atendimento de urgência via Pronto Socorro do Hospital Madrid e/ou entrar em contato com Dr. Eduardo Ogawa (11 97632-1588)." id="Lesões pós-sortable-outros"><label for="Lesões pós-sortable-outros" contenteditable="true">Lesões pós</label></div>
+</div>
+</section>
+		<br><hr>
+
+<div id="checkbox-dropzone" ondrop="drop(event)" ondragover="allowDrop(event)"></div>
+
+	<script>//drag and drop
+$(function() {
+  $('#sortable-equipamento').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-equipamento').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-equipamento').append($('#' + items[i]));
+      }
+    }
+  });
+
+  $('#sortable-sedacao').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-sedacao').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-sedacao').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-esofago').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-esofago').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-esofago').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-estomago').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-estomago').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-estomago').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-duodeno').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-duodeno').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-duodeno').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-jejuno').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-jejuno').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-jejuno').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-conclusao').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-conclusao').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-conclusao').append($('#' + items[i]));
+      }
+    }
+  });
+  
+  $('#sortable-outros').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable-outros').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable-outros').append($('#' + items[i]));
+      }
+    }
+  });
+});
+	 </script>
+	 
+	<button style="font-size: 14px; font-weight: Bold; padding: 10px;" onclick="generateText()">Gerar e Copiar Laudo</button>
+	<button style="font-size: 14px; font-weight: Bold; padding: 10px;" onclick="uncheckAll()">Limpar Seleção</button>
+	<br><br>
+	
+	  <script>
+    const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+    checkboxes.forEach((checkbox) => {
+      checkbox.addEventListener('click', (event) => {
+        const selectedLabel = event.target.closest('label').textContent.trim();
+        
+        checkboxes.forEach((checkbox) => {
+          const label = checkbox.closest('label').textContent.trim();
+          if (label === selectedLabel && checkbox !== event.target) {
+            checkbox.checked = true;
+          }
+        }
+      }
+    }
+  </script>
+	
+	<div class="my-textarea" id="output" contenteditable="true"></div>
+	
+<script> //formatar Laudo colado
+  document.getElementById("output").addEventListener("input", function(e) {
+    // Check if the input event was a paste event
+    if (e.inputType === "insertFromPaste") {
+      // Get the pasted content
+      var pasteContent = (e.clipboardData || window.clipboardData).getData('text/html');
+      // Create a temporary div element to insert the pasted content
+      var tempDiv = document.createElement('div');
+      // Set the innerHTML of the temporary div with the pasted content
+      tempDiv.innerHTML = pasteContent;
+      // Get the HTML content of the temporary div
+      var pastedHtml = tempDiv.innerHTML;
+      // Insert the pasted HTML content into the contenteditable div
+      document.getElementById("output").insertAdjacentHTML('beforeend', pastedHtml);
+      // Prevent the default paste action
+      e.preventDefault();
+    }
+  });
+</script>
+
+<script>//gerar Texto
+function getSelectedOptionValue(selectElement) {
+    return selectElement.value;
+}
+
+function getSelectedOptionExtra(selectElement) {
+    return selectElement.options[selectElement.selectedIndex].getAttribute('data-extra');
+}
+
+function createCheckboxDiv(text, name) {
+    const div = document.createElement('div');
+    div.className = 'item ui-sortable-handle';
+    div.style.display = 'block';
+    div.innerHTML = `<input type="checkbox" name="${name}" value="${text}" checked><label>${text}</label>`;
+    return div;
+}
+
+function appendToSortable(elementId, div) {
+    document.getElementById(elementId).appendChild(div);
+}
+
+function addParametersedacao() {
+    const fentanil = getSelectedOptionValue(document.getElementById('fentanil'));
+    const midazolam = getSelectedOptionValue(document.getElementById('midazolam'));
+
+    let sedacaoText = `Fentanil ${fentanil}${midazolam} + Propofol titulado IV.<br>Suplementação de O2 por catéter nasal a 3 L/min.<br>Monitorização de oximetria de pulso e PNI.`;
+
+    appendToSortable('sortable-sedacao', createCheckboxDiv(sedacaoText, 'sedacao'));
+}
+
+function generateText() {
+  var text = "<span class='bold'>ENDOSCOPIA DIGESTIVA ALTA</span><br><br><br><br>";
+
+  var equipamentoText = "";
+  $("#equipamento input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    equipamentoText += checkboxValue + "<br><br><br>";
+  });
+  if (equipamentoText) {
+    text += equipamentoText;
+  }
+
+  var sedacaoText = "";
+  $("#Sedação input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    sedacaoText += checkboxValue + "<br><br><br>";
+  });
+  if (sedacaoText) {
+    text += "<span class='bold'>Sedação: </span>" + sedacaoText;
+  }
+
+var esofagoText = "";
+var deslocadaFound = false;
+
+$("#Esôfago input[type='checkbox']:checked").each(function() {
+  var checkboxValue = $(this).val();
+  
+  if (checkboxValue.includes("deslocada")) {
+    checkboxValue = checkboxValue.replace("ajustado", "alargado em relação");
+    deslocadaFound = true;
+  }
+  
+  esofagoText += checkboxValue + "<br><br>";
+});
+
+var estomagoText = "";
+$("#Estômago input[type='checkbox']:checked").each(function() {
+  var checkboxValue = $(this).val();
+  estomagoText += checkboxValue + "<br><br>";
+});
+
+if (deslocadaFound) {
+  estomagoText = estomagoText.replace(/ajustado/g, "alargado em relação");
+}
+
+if (esofagoText) {
+  text += "<span class='bold'>Esôfago: </span>" + esofagoText;
+}
+
+if (estomagoText) {
+  text += "<span class='bold'>Estômago: </span>" + estomagoText;
+}
+
+  var duodenoText = "";
+  $("#Duodeno input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    duodenoText += checkboxValue + "<br><br>";
+  });
+  if (duodenoText) {
+    text += "<span class='bold'>Duodeno: </span>" + duodenoText;
+  }
+
+  var jejunoText = "";
+  $("#Jejuno input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    jejunoText += checkboxValue + "<br><br>";
+  });
+  if (jejunoText) {
+    text += "<span class='bold'>Jejuno: </span>" + jejunoText;
+  }
+
+  var outrosText = "";
+  $("#Outros input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    outrosText += checkboxValue + "<br><br>";
+  });
+  if (outrosText) {
+    if (text == "") {
+      text = endoscopiaText;
+    }
+    text += outrosText;
+  }
+
+  var conclusaoText = "";
+  $("#Conclusão input[type='checkbox']:checked").each(function() {
+    var checkboxValue = $(this).val();
+    conclusaoText += checkboxValue + "<br>";
+  });
+  if (conclusaoText) {
+    text += "<br><br><br><span class='bold'>Conclusão:</span><br><br>" + conclusaoText;
+  }
+  
+    // Check if any checkbox in the "Outros" section is checked, and exclude the "ENDOSCOPIA DIGESTIVA ALTA" text if so
+  if ($("#Outros input[type='checkbox']:checked").length > 0) {
+    text = text.replace("<span class='bold'>ENDOSCOPIA DIGESTIVA ALTA</span><br><br><br><br>", "");
+  }
+  
+  // Set the generated text in the output textarea
+  $("#output").html(text);
+
+var outputElement = document.getElementById("output");
+  outputElement.innerHTML = text;
+  outputElement.focus();
+  document.execCommand("selectAll");
+  document.execCommand("copy");
+  document.execCommand("");
+  window.getSelection().removeAllRanges();
+}
+
+$(function() {
+  $('#sortable').sortable({
+    update: function(event, ui) {
+      var items = $('#sortable').sortable('toArray');
+      for (var i = 0; i < items.length; i++) {
+        $('#sortable').append($('#' + items[i]));
+      }
+    }
+  });
+});
+</script>
+<script>
+const checkboxes = document.querySelectorAll('input[type="checkbox"]');
+checkboxes.forEach(function(checkbox) {
+  checkbox.addEventListener('click', function() {
+    const checked = this.checked;
+    const name = this.name;
+    const matchingCheckboxes = document.querySelectorAll('input[type="checkbox"][name="' + name + '"]');
+    matchingCheckboxes.forEach(function(matchingCheckbox) {
+      if (matchingCheckbox !== checkbox) {
+        matchingCheckbox.checked = checked;
+      }
+    });
+  });
+});
+</script>
+
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+      function handleCheckboxClick(event) {
+        var checkboxName = event.target.name.split('+')[0]; // Extract text before "+"
+        var relatedCheckboxes = document.querySelectorAll('#Conclusão input[name="' + checkboxName + '"]');
+
+        relatedCheckboxes.forEach(function(checkbox) {
+          checkbox.checked = true; // Check related checkboxes
+        });
+      }
+
+      checkboxes.forEach(function(checkbox) {
+        if (checkbox.name.includes('+')) { // Check if name contains "+"
+          checkbox.addEventListener('click', handleCheckboxClick);
+        }
+      });
+    });
+</script>
+
+  <script>
+    document.addEventListener('DOMContentLoaded', function() {
+      var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+
+      function handleCheckboxClick(event) {
+        var checkboxName = event.target.name.split('+')[1]; // Extract text after "+"
+        var relatedCheckboxes = document.querySelectorAll('#Conclusão input[name$="' + checkboxName + '"]');
+
+        relatedCheckboxes.forEach(function(checkbox) {
+          checkbox.checked = true; // Check related checkboxes
+        });
+      }
+
+      checkboxes.forEach(function(checkbox) {
+        if (checkbox.name.includes('+')) { // Check if name contains "+"
+          checkbox.addEventListener('click', handleCheckboxClick);
+        }
+      });
+    });
+  </script>
+
+
+<script>
+  const concnormalCheckbox = document.getElementById("concnormal");
+  const checkboxesToCheck = [
+    document.getElementById("checkbox4"),
+    document.getElementById("checkbox11"),
+    document.getElementById("checkbox26")
+  ];
+
+  concnormalCheckbox.addEventListener("change", function() {
+    if (concnormalCheckbox.checked) {
+      checkboxesToCheck.forEach(function(checkbox) {
+        checkbox.checked = true;
+      });
+    }
+  });
+</script>
+
+<script>//limpar seleção
+function uncheckAll() {
+  var checkboxes = document.querySelectorAll('input[type="checkbox"]');
+  for (var i = 0; i < checkboxes.length; i++) {
+    checkboxes[i].checked = false;
+  }
+}
+</script>
+
+  <footer>
+    <style="font-size: 10px"=""><br>Gerador de Laudo de EDA (2024) - Eduardo K. M. Ogawa.
+  </style="font-size:>
+  </footer>
+
+</main></body></html>

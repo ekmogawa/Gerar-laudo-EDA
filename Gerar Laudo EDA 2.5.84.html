@@ -770,7 +770,19 @@ function addParametersedacao() {
 
 function generateText() {
   var text = "<span class='bold'>ENDOSCOPIA DIGESTIVA ALTA</span><br><br><br><br>";
+const cb = document.getElementById('checkboxmi');
+  let estomagoText = document.getElementById('estomagoInput').value;
+  let conclusaoText = document.getElementById('conclusaoInput').value;
 
+  if (cb && cb.checked) {
+    estomagoText = estomagoText.replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
+    conclusaoText = conclusaoText.replace(/atrofia/g, 'atrofia com metaplasia intestinal ');
+  }
+
+  document.getElementById('estomagoPreview').textContent = estomagoText;
+  document.getElementById('conclusaoPreview').textContent = conclusaoText;
+}
+	
   var equipamentoText = "";
   $("#equipamento input[type='checkbox']:checked").each(function() {
     var checkboxValue = $(this).val();
@@ -816,15 +828,6 @@ $("#Estômago input[type='checkbox']:checked").each(function() {
 
 if (deslocadaFound) {
   estomagoText = estomagoText.replace(/ajustado/g, "alargado em relação");
-}
-
-	  const cb = document.getElementById('checkboxmi');
-  if (!cb) return;
-
-  if (cb.checked) {
-    estomagoText = estomagoText.replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
-    conclusaoText = conclusaoText.replace(/atrofia/g, 'atrofia com metaplasia intestinal ');
-  }
 }
 	
 if (esofagoText) {

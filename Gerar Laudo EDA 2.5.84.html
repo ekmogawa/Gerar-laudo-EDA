@@ -430,12 +430,12 @@ function createCheckbox() {
 	<label for="gastrectBII" contenteditable="true">Gastrect BII</label></div>
 	<div class="item ui-sortable-handle"><input type="checkbox" id="checkbox24" name="Bypass" value="câmara gástrica residual medindo cerca de 2,5cm pela pequena curvatura, apresentando mucosa preservada. Anastomose gastrojejunal terminolateral com cerca de 1,5cm, sem lesões.">
 	<label for="checkbox24" contenteditable="true">Bypass</label></div>
-	
 	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Gastrop vert" value="ausência de grande curvatura do corpo por cirurgia prévia. Líquido claro em pequeno volume. A mucosa está preservada em todos os segmentos. Transição corpo-antro apresentando angulação habitual. Piloro centrado e pérvio." id="Gastrop vert-sortable-estomago"><label for="Gastrop vert-sortable-estomago" contenteditable="true">Gastrop vert</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" name="Gastrop vert+Pang en leve" value="ausência de grande curvatura do corpo por cirurgia prévia. Líquido claro em pequeno volume. A mucosa apresenta edema e enantema discretos em todos os segmentos. Transição corpo-antro apresentando angulação habitual. Piloro centrado e pérvio." id="Gastrop vert+Pang en leve-sortable-estomago"><label for="Gastrop vert+Pang en leve-sortable-estomago" contenteditable="true">Gastrop vert+Pang en leve</label></div><div class="item ui-sortable-handle" style=""><input type="checkbox" id="checkbox25" name="Santoro" value="volume discretamente reduzido em consequência de ressecção cirúrgica de grande curvatura do corpo, observando-se retração cicatricial nesta topografia. Líquido claro em pequeno volume. Hiato diafragmático ajustado ao aparelho, quando visto em retroversão. A mucosa apresenta edema e enantema discretos em todos os segmentos. Incisura angular sem lesões. Na grande curvatura da transição corpo-antro, encontra-se anastomose gastroenteral medindo cerca de 10-15mm, sem lesões; alça enteral percorrida por cerca de 15cm, sem lesões. Antro anatomicamente preservado e piloro pérvio.">
 	<label for="checkbox25" contenteditable="true">Santoro</label></div>
-	
-<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Desc. GTT" value="Sinais de transiluminação e digitopressão presentes em parede anterior do corpo médio.&lt;br&gt;Antissepsia e colocação de campos.&lt;br&gt;Anestesia local com lidocaína tópica a 2%.&lt;br&gt;Punção com gelco sob visão endoscópica em ponto previamente demarcado.&lt;br&gt;Passagem de sonda de gastrostomia 20FR por técnica de tração, fixada com anteparo justo à parede anterior do corpo gástrico e móvel à rotação com marca de 3cm ao nível da pele.&lt;br&gt;Curativo oclusivo." id="Desc. GTT-sortable-estomago"><label for="Desc. GTT-sortable-estomago" contenteditable="true">Desc. GTT</label></div>
-</div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="Desc. GTT" value="Sinais de transiluminação e digitopressão presentes em parede anterior do corpo médio.&lt;br&gt;Antissepsia e colocação de campos.&lt;br&gt;Anestesia local com lidocaína tópica a 2%.&lt;br&gt;Punção com gelco sob visão endoscópica em ponto previamente demarcado.&lt;br&gt;Passagem de sonda de gastrostomia 20FR por técnica de tração, fixada com anteparo justo à parede anterior do corpo gástrico e móvel à rotação com marca de 3cm ao nível da pele.&lt;br&gt;Curativo oclusivo." id="Desc. GTT-sortable-estomago"><label for="Desc. GTT-sortable-estomago" contenteditable="true">Desc. GTT</label></div>
+	<div class="item ui-sortable-handle" style=""><input type="checkbox" name="MI" value="">
+	<label for="checkboxmi" contenteditable="true">MI</label></div>
+	</div>
 	</section>
 
 <br><hr>
@@ -816,6 +816,12 @@ $("#Estômago input[type='checkbox']:checked").each(function() {
 
 if (deslocadaFound) {
   estomagoText = estomagoText.replace(/ajustado/g, "alargado em relação");
+}
+const checkbox = document.getElementById('checkboxmi');
+
+if (checkbox && checkbox.checked) {
+  estomagoText = estomagoText.replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
+  conclusaoText = conclusaoText.replace(/atrofia/g, 'atrofia com metaplasia intestinal ');
 }
 
 if (esofagoText) {

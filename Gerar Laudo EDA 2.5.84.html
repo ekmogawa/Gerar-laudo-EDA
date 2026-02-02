@@ -817,13 +817,16 @@ $("#Estômago input[type='checkbox']:checked").each(function() {
 if (deslocadaFound) {
   estomagoText = estomagoText.replace(/ajustado/g, "alargado em relação");
 }
-const checkbox = document.getElementById('checkboxmi');
 
-if (checkbox && checkbox.checked) {
-  estomagoText = estomagoText.replace(/reduzido/g, "reduzido, além de focos de provável metaplasia intestinal,");
-  conclusaoText = conclusaoText.replace(/atrofia/g, "atrofia com metaplasia intestinal");
+	  const cb = document.getElementById('checkboxmi');
+  if (!cb) return;
+
+  if (cb.checked) {
+    estomagoText = estomagoText.replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
+    conclusaoText = conclusaoText.replace(/atrofia/g, 'atrofia com metaplasia intestinal ');
+  }
 }
-
+	
 if (esofagoText) {
   text += "<span class='bold'>Esôfago: </span>" + esofagoText;
 }

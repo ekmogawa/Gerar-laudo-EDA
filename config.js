@@ -17,9 +17,9 @@
 
 const GITHUB_CONFIG = {
   owner:  'ekmogawa',
-  repo:   'Gerar-Laudo-Colono',
+  repo:   'Gerar-Laudo-EDA',
   branch: 'main',
-  path:   'dados_colono.js',
+  path:   'dados_eda.js',
 
   // Token criptografado — NÃO edite estes valores manualmente
   tokenCriptografado: 'Ix4pVcnoFGR1N8P21UwqEYYm0scRS5RuhLD0dFl+48nsm8dsJpisPD0aX8MAhng+KV03BHRfo+A=',

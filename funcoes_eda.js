@@ -114,7 +114,6 @@ function inicializar() {
   inicializarSincronizacaoCheckboxes();
   inicializarConcNormal();
   atualizarStatusGitHub();
-  inicializarTokenGitHub();
 }
 
 // ----------------------------------------------------------

@@ -496,6 +496,7 @@ async function salvarDados() {
   };
 
   console.log('[salvarDados] Iniciando. URL:', apiBase, '| branch:', branch);
+  console.log('[salvarDados] Token prefix (primeiros 15 chars):', token ? token.substring(0, 15) + '...' : 'VAZIO');
   mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a', 10000);
 
   try {

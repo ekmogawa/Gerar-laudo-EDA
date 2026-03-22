@@ -22,7 +22,7 @@ const GITHUB_CONFIG = {
   path:   'dados_eda.js',
 
   // Token criptografado — NÃO edite estes valores manualmente
-  tokenCriptografado: 'Ix4pVcnoFGR1N8P21UwqEYYm0scRS5RuhLD0dFl+48nsm8dsJpisPD0aX8MAhng+KV03BHRfo+A=',
-  salt: 'SGsAp2fXvrH6xv881W/blg==',
-  iv:   'wiYdKmGo6fCDBoht',
+  tokenCriptografado: 'Nq5xiPPdW3uKDdtkPiFZzjIAwc/Lu/IyPAeJ1EtMlCYvYab2Z8HaavZSW+QvglScBeKfxZw7eYU=',
+  salt: 'uKolz86dP3HJl2DsO39aYA==',
+  iv:   'as+GZvO4cOwVvR9Q',
 };

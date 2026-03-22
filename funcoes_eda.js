@@ -605,7 +605,9 @@ async function salvarDados() {
     };
     if (getSha) body.sha = getSha;
 
-    console.log('[salvarDados] PUT', apiBase, '| sha:', getSha ? getSha.substring(0, 8) : 'novo arquivo');
+    console.log('[salvarDados] PUT body sha:', getSha ? getSha.substring(0, 8) : 'nenhum (arquivo novo)');
+    console.log('[salvarDados] PUT branch:', branch, '| path:', path);
+    console.log('[salvarDados] PUT conteúdo base64 (primeiros 80):', conteudoB64.substring(0, 80));
     var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
     console.log('[salvarDados] PUT status:', putResp.status);
 

@@ -1,8 +1,3 @@
-// ============================================================
-// BANCO DE DADOS — Gerar Laudo EDA
-// Para adicionar/remover/editar itens, edite apenas este arquivo.
-// ============================================================
-
 const DB_PADRAO = {
 
   "equipamento": [

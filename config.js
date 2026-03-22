@@ -1,18 +1,8 @@
 // ============================================================
-// CONFIGURAÇÃO — Gerar Laudo Colonoscopia
-// O token está criptografado com AES-256-GCM + PBKDF2.
+// CONFIGURAÇÃO DO GITHUB — Gerar Laudo EDA
+// Token criptografado com AES-256-GCM + PBKDF2.
 // Repositório pode ser público — sem a senha o token é inútil.
-//
-// Para gerar este arquivo:
-//   1. Abra criptografar_token.html no browser (localmente)
-//   2. Cole seu token GitHub e escolha uma senha
-//   3. Substitua este arquivo pelo resultado gerado
-// ============================================================
-
-// ============================================================
-// CONFIGURAÇÃO — Gerar Laudo Colonoscopia
-// O token está criptografado com AES-256-GCM + PBKDF2.
-// Repositório pode ser público — sem a senha o token é inútil.
+// Gerado em: 22/03/2026, 18:27:23
 // ============================================================
 
 const GITHUB_CONFIG = {
@@ -22,7 +12,7 @@ const GITHUB_CONFIG = {
   path:   'dados_eda.js',
 
   // Token criptografado — NÃO edite estes valores manualmente
-  tokenCriptografado: 'Nq5xiPPdW3uKDdtkPiFZzjIAwc/Lu/IyPAeJ1EtMlCYvYab2Z8HaavZSW+QvglScBeKfxZw7eYU=',
-  salt: 'uKolz86dP3HJl2DsO39aYA==',
-  iv:   'as+GZvO4cOwVvR9Q',
+  tokenCriptografado: 'k7hUdlF02Idy4mnQYR+jqOCuigWXoE4185Kdk/tGZpPStGo9Rrv7krk70ivA1BzUYU1bW1BY7Jc=',
+  salt: 'k+jxHMg3sa1z3UCT4KlvPg==',
+  iv:   'DEXPqKp1hOhn2FQz',
 };

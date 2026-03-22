@@ -16,11 +16,21 @@
   <script>
     // Aponta para o banco de dados da EDA
     if (typeof GITHUB_CONFIG !== 'undefined') GITHUB_CONFIG.path = 'dados_eda.js';
+
+    // Carrega dados_eda.js e funcoes_eda.js com cache-busting
+    (function () {
+      var t = Date.now();
+      function loadScript(src, onload) {
+        var s = document.createElement('script');
+        s.src = src + '?t=' + t;
+        s.onload = onload;
+        document.head.appendChild(s);
+      }
+      loadScript('dados_eda.js', function () {
+        loadScript('funcoes_eda.js', null);
+      });
+    })();
   </script>
-  <!-- ② Banco de dados -->
-  <script src="dados_eda.js"></script>
-  <!-- ③ Funções -->
-  <script src="funcoes_eda.js"></script>
 
   <style>
     :root {

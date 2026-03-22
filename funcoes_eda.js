@@ -204,6 +204,7 @@ function showPopup() {
   if (checkboxes.length === 0) {
     container.innerHTML = '<p>Nenhum item selecionado para editar.</p>';
     document.getElementById('popup').style.display = 'block';
+    document.getElementById('backdrop').classList.add('show');
     return;
   }
   checkboxes.forEach(function (cb) {
@@ -224,6 +225,7 @@ function showPopup() {
     container.appendChild(itemDiv);
   });
   document.getElementById('popup').style.display = 'block';
+  document.getElementById('backdrop').classList.add('show');
 }
 
 function updateEverything(currentId, newName, suffix, inputEl) {
@@ -247,6 +249,7 @@ function updateOnlyValue(id, newValue) {
 function hidePopup() {
   document.getElementById('popup').style.display = 'none';
   document.getElementById('checkbox-list').innerHTML = '';
+  document.getElementById('backdrop').classList.remove('show');
 }
 
 function deleteCheckedCheckboxes() {
@@ -257,8 +260,14 @@ function deleteCheckedCheckboxes() {
   }
 }
 
-function showCreatePopup() { document.getElementById('create-popup').style.display = 'block'; }
-function hideCreatePopup() { document.getElementById('create-popup').style.display = 'none'; }
+function showCreatePopup() {
+  document.getElementById('create-popup').style.display = 'block';
+  document.getElementById('backdrop').classList.add('show');
+}
+function hideCreatePopup() {
+  document.getElementById('create-popup').style.display = 'none';
+  document.getElementById('backdrop').classList.remove('show');
+}
 
 function createCheckbox() {
   var nome      = document.getElementById('checkbox-name').value;

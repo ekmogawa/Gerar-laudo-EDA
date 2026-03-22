@@ -2,7 +2,7 @@
 // CONFIGURAÇÃO DO GITHUB — Gerar Laudo EDA
 // Token criptografado com AES-256-GCM + PBKDF2.
 // Repositório pode ser público — sem a senha o token é inútil.
-// Gerado em: 22/03/2026, 18:27:23
+// Gerado em: 22/03/2026, 19:00:27
 // ============================================================
 
 const GITHUB_CONFIG = {
@@ -12,7 +12,7 @@ const GITHUB_CONFIG = {
   path:   'dados_eda.js',
 
   // Token criptografado — NÃO edite estes valores manualmente
-  tokenCriptografado: 'k7hUdlF02Idy4mnQYR+jqOCuigWXoE4185Kdk/tGZpPStGo9Rrv7krk70ivA1BzUYU1bW1BY7Jc=',
-  salt: 'k+jxHMg3sa1z3UCT4KlvPg==',
-  iv:   'DEXPqKp1hOhn2FQz',
+  tokenCriptografado: 'ABeVST6DwKr5Cwm9KVhN8H7odj/5cltDjvNVJqa6ldAQXpFs9PPoYrA858Kidd9e2eBUH2v5m8IUnBYi9611Q9ub3cV+CHtEmuzWjuJWPLgA7yYSVEZH6a6sKBFGBuDsQcPZ+/Rq4POYeDIrUg==',
+  salt: 'fwcNkVoGq1S89VWHz+32Rg==',
+  iv:   'UT3nX+KM58yhgMY0',
 };

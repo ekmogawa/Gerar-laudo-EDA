@@ -33,13 +33,14 @@ function getSelectedOptionValue(selectElement) {
   return selectElement.value;
 }
 
-function mostrarToast(msg, cor) {
+function mostrarToast(msg, cor, duracao) {
   var t = document.getElementById('toast');
   if (!t) return;
   t.textContent = msg;
   t.style.background = cor || '#1a3a1a';
   t.classList.add('show');
-  setTimeout(function () { t.classList.remove('show'); }, 2800);
+  clearTimeout(t._timer);
+  t._timer = setTimeout(function () { t.classList.remove('show'); }, duracao || 3200);
 }
 
 var _contadorDinamico = 0;
@@ -169,17 +170,15 @@ function inicializarSincronizacaoCheckboxes() {
 // ----------------------------------------------------------
 
 function inicializarConcNormal() {
-  document.addEventListener('DOMContentLoaded', function () {
-    var concnormal = document.getElementById('concnormal');
-    if (!concnormal) return;
-    concnormal.addEventListener('change', function () {
-      if (concnormal.checked) {
-        ['checkbox4','checkbox11','checkbox26'].forEach(function (id) {
-          var cb = document.getElementById(id);
-          if (cb) cb.checked = true;
-        });
-      }
-    });
+  var concnormal = document.getElementById('concnormal');
+  if (!concnormal) return;
+  concnormal.addEventListener('change', function () {
+    if (concnormal.checked) {
+      ['checkbox4','checkbox11','checkbox26'].forEach(function (id) {
+        var cb = document.getElementById(id);
+        if (cb) cb.checked = true;
+      });
+    }
   });
 }
 
@@ -408,18 +407,28 @@ function pedirSenha(msg) {
 
 async function descriptografarToken(senha) {
   try {
+    if (!window.crypto || !window.crypto.subtle) {
+      console.error('[descriptografarToken] crypto.subtle indisponível. A página precisa ser servida via HTTPS ou localhost.');
+      return null;
+    }
     var c       = lerConfigGitHub();
     var fromB64 = function (b64) { return Uint8Array.from(atob(b64), function (ch) { return ch.charCodeAt(0); }); };
     var salt    = fromB64(c.salt);
     var iv      = fromB64(c.iv);
     var cifrado = fromB64(c.tokenCriptografado);
+    console.log('[descriptografarToken] salt bytes:', salt.length, '| iv bytes:', iv.length, '| cifrado bytes:', cifrado.length);
     var keyMat  = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
     var key     = await crypto.subtle.deriveKey(
       { name: 'PBKDF2', salt: salt, iterations: 200000, hash: 'SHA-256' },
       keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
     var dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cifrado);
-    return new TextDecoder().decode(dec);
-  } catch (e) { return null; }
+    var token = new TextDecoder().decode(dec);
+    console.log('[descriptografarToken] Token decriptografado com sucesso. Tamanho:', token.length, 'chars. Prefixo:', token.substring(0, 6) + '...');
+    return token;
+  } catch (e) {
+    console.error('[descriptografarToken] Falha:', e.name, e.message);
+    return null;
+  }
 }
 
 async function inicializarTokenGitHub() {
@@ -458,17 +467,16 @@ async function salvarDados() {
     token = sessionStorage.getItem('colono_github_token');
   }
 
-  // Diagnóstico detalhado de configuração ausente
   if (!c.owner || !c.repo) {
-    mostrarToast('⚠️ Verifique config.js: owner e repo são obrigatórios.', '#7a4000');
+    mostrarToast('⚠️ config.js sem owner/repo. Verifique o arquivo.', '#7a4000', 6000);
+    console.error('[salvarDados] GITHUB_CONFIG:', c);
     return;
   }
   if (!token) {
-    mostrarToast('⚠️ Token GitHub ausente. Configure token ou tokenCriptografado em config.js.', '#7a4000');
+    mostrarToast('⚠️ Token ausente. Verifique config.js ou refaça a autenticação.', '#7a4000', 6000);
     return;
   }
 
-  // branch com fallback seguro
   var branch  = c.branch || 'main';
   var path    = c.path   || 'dados_eda.js';
   var apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + path;
@@ -478,23 +486,30 @@ async function salvarDados() {
     'Content-Type':  'application/json'
   };
 
-  var dbAtualizado = coletarDB();
-  mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a');
+  console.log('[salvarDados] Iniciando. URL:', apiBase, '| branch:', branch);
+  mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a', 10000);
+
   try {
-    // Busca SHA atual do arquivo (necessário para atualizar)
+    var dbAtualizado = coletarDB(); // dentro do try para capturar erros de serialização
+
+    // 1. Busca SHA atual (necessário para atualizar arquivo existente)
+    console.log('[salvarDados] GET', apiBase + '?ref=' + branch);
     var getResp = await fetch(apiBase + '?ref=' + encodeURIComponent(branch), { headers: headers });
+    console.log('[salvarDados] GET status:', getResp.status);
 
     if (!getResp.ok && getResp.status !== 404) {
       var errGet = await getResp.json().catch(function () { return {}; });
-      throw new Error(errGet.message || 'Erro ao buscar arquivo: HTTP ' + getResp.status);
+      throw new Error('Erro ao ler arquivo remoto: ' + (errGet.message || 'HTTP ' + getResp.status));
     }
 
     var getSha = undefined;
     if (getResp.ok) {
       var getData = await getResp.json().catch(function () { return {}; });
       getSha = getData.sha;
+      console.log('[salvarDados] SHA encontrado:', getSha ? getSha.substring(0, 8) + '…' : 'nenhum');
     }
 
+    // 2. Monta e envia o conteúdo
     var conteudo    = montarConteudoJS(dbAtualizado);
     var conteudoB64 = btoa(unescape(encodeURIComponent(conteudo)));
     var body = {
@@ -504,24 +519,27 @@ async function salvarDados() {
     };
     if (getSha) body.sha = getSha;
 
+    console.log('[salvarDados] PUT', apiBase, '| sha:', getSha ? getSha.substring(0, 8) : 'novo arquivo');
     var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
+    console.log('[salvarDados] PUT status:', putResp.status);
+
     if (!putResp.ok) {
       var errPut = await putResp.json().catch(function () { return {}; });
-      // Mensagens amigáveis para erros comuns
       var msg = errPut.message || ('HTTP ' + putResp.status);
-      if (putResp.status === 401) msg = 'Token inválido ou expirado (401). Gere um novo em GitHub → Settings → Tokens.';
-      if (putResp.status === 403) msg = 'Sem permissão de escrita (403). O token precisa do escopo "repo" ou "contents:write".';
-      if (putResp.status === 404) msg = 'Repositório ou caminho não encontrado (404). Verifique owner, repo e path no config.js.';
-      if (putResp.status === 409) msg = 'Conflito de SHA (409). Outro push ocorreu ao mesmo tempo — tente novamente.';
-      if (putResp.status === 422) msg = 'SHA inválido (422). O arquivo pode ter mudado. Recarregue a página e tente de novo.';
+      if (putResp.status === 401) msg = 'Token inválido ou expirado (401). Gere um novo token no GitHub e recrie o config.js.';
+      if (putResp.status === 403) msg = 'Sem permissão de escrita (403). O token precisa do escopo "Contents: Read and write".';
+      if (putResp.status === 404) msg = 'Repositório ou arquivo não encontrado (404). Verifique owner="' + c.owner + '" repo="' + c.repo + '" path="' + path + '".';
+      if (putResp.status === 409) msg = 'Conflito de versão (409). Recarregue a página e tente novamente.';
+      if (putResp.status === 422) msg = 'SHA inválido (422). Recarregue a página e tente novamente.';
       throw new Error(msg);
     }
 
     Object.assign(_DB, dbAtualizado);
-    mostrarToast('✅ dados_eda.js salvo no GitHub!', '#1a3a1a');
+    mostrarToast('✅ dados_eda.js salvo no GitHub!', '#1a3a1a', 4000);
+    console.log('[salvarDados] Sucesso!');
   } catch (e) {
-    mostrarToast('❌ Erro: ' + e.message, '#7a1a1a');
-    console.error('[salvarDados] Detalhes:', e);
+    mostrarToast('❌ ' + e.message, '#7a1a1a', 8000);
+    console.error('[salvarDados] Erro completo:', e);
   }
 }
 

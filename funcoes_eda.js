@@ -656,4 +656,4 @@ async function copiarFormatado() {
 // ----------------------------------------------------------
 // INICIALIZA
 // ----------------------------------------------------------
-document.addEventListener('DOMContentLoaded', inicializar);
+// inicializar() é chamado diretamente pelo loader no index_eda.html

@@ -572,30 +572,42 @@ async function salvarDados() {
   };
 
   console.log('[salvarDados] Iniciando. URL:', apiBase, '| branch:', branch);
-  console.log('[salvarDados] Token prefix (primeiros 15 chars):', token ? token.substring(0, 15) + '...' : 'VAZIO');
+  console.log('[salvarDados] Token prefix:', token ? token.substring(0, 15) + '...' : 'VAZIO');
   mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a', 10000);
 
   try {
-    var dbAtualizado = coletarDB(); // dentro do try para capturar erros de serialização
+    // 1. Verifica escopos do token (clássico: precisa de 'repo' ou 'public_repo')
+    var scopeResp = await fetch('https://api.github.com/user', {
+      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }
+    });
+    var scopes = scopeResp.headers.get('x-oauth-scopes') || 'não retornado (token fine-grained)';
+    console.log('[salvarDados] Token scopes:', scopes);
 
-    // 1. Busca SHA atual (necessário para atualizar arquivo existente)
+    // 1. Busca SHA atual
     console.log('[salvarDados] GET', apiBase + '?ref=' + branch);
     var getResp = await fetch(apiBase + '?ref=' + encodeURIComponent(branch), { headers: headers });
     console.log('[salvarDados] GET status:', getResp.status);
 
     if (!getResp.ok && getResp.status !== 404) {
       var errGet = await getResp.json().catch(function () { return {}; });
-      throw new Error('Erro ao ler arquivo remoto: ' + (errGet.message || 'HTTP ' + getResp.status));
+      throw new Error('Erro ao ler arquivo: ' + (errGet.message || 'HTTP ' + getResp.status));
     }
 
     var getSha = undefined;
     if (getResp.ok) {
       var getData = await getResp.json().catch(function () { return {}; });
       getSha = getData.sha;
-      console.log('[salvarDados] SHA encontrado:', getSha ? getSha.substring(0, 8) + '…' : 'nenhum');
+      console.log('[salvarDados] SHA:', getSha ? getSha.substring(0, 8) + '…' : 'nenhum');
+    } else {
+      console.log('[salvarDados] Arquivo não existe ainda — será criado.');
     }
 
-    // 2. Monta e envia o conteúdo
+    // 2. Serializa o banco de dados
+    console.log('[salvarDados] Serializando DB…');
+    var dbAtualizado = coletarDB();
+    console.log('[salvarDados] DB serializado. Seções:', Object.keys(dbAtualizado).join(', '));
+
+    // 3. Monta e envia
     var conteudo    = montarConteudoJS(dbAtualizado);
     var conteudoB64 = btoa(unescape(encodeURIComponent(conteudo)));
     var body = {
@@ -605,9 +617,7 @@ async function salvarDados() {
     };
     if (getSha) body.sha = getSha;
 
-    console.log('[salvarDados] PUT body sha:', getSha ? getSha.substring(0, 8) : 'nenhum (arquivo novo)');
-    console.log('[salvarDados] PUT branch:', branch, '| path:', path);
-    console.log('[salvarDados] PUT conteúdo base64 (primeiros 80):', conteudoB64.substring(0, 80));
+    console.log('[salvarDados] PUT sha:', getSha ? getSha.substring(0, 8) : 'novo', '| branch:', branch, '| b64 length:', conteudoB64.length);
     var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
     console.log('[salvarDados] PUT status:', putResp.status);
 

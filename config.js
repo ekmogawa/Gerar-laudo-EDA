@@ -17,7 +17,7 @@
 
 const GITHUB_CONFIG = {
   owner:  'ekmogawa',
-  repo:   'Gerar-Laudo-EDA',
+  repo:   'Gerar-laudo-EDA',
   branch: 'main',
   path:   'dados_eda.js',
 

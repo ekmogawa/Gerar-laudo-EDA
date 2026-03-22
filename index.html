@@ -1,0 +1,521 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Laudo EDA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/smoothness/jquery-ui.css">
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
+
+  <!-- ① Configuração GitHub -->
+  <script src="config.js"></script>
+  <script>
+    // Aponta para o banco de dados da EDA
+    if (typeof GITHUB_CONFIG !== 'undefined') GITHUB_CONFIG.path = 'dados_eda.js';
+  </script>
+  <!-- ② Banco de dados -->
+  <script src="dados_eda.js"></script>
+  <!-- ③ Funções -->
+  <script src="funcoes_eda.js"></script>
+
+  <style>
+    :root {
+      --bg:       #eef2ef;
+      --panel:    #ffffff;
+      --row-alt:  #f7faf8;
+      --border:   #d6e3da;
+      --border2:  #c4d6ca;
+      --ink:      #172418;
+      --ink2:     #3d5c46;
+      --ink3:     #7a9882;
+      --primary:  #1b4d36;
+      --primary-h:#123625;
+      --accent:   #2a7a52;
+      --accent-l: #e6f4ed;
+      --pill-bg:  #f0f7f3;
+      --danger:   #c04040;
+      --shadow:   0 1px 4px rgba(0,0,0,.07);
+      --shadow-m: 0 4px 20px rgba(0,0,0,.11);
+      --r:        6px;
+      --t:        .15s ease;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+    html { scroll-behavior: smooth; }
+
+    body {
+      font-family: 'DM Sans', system-ui, sans-serif;
+      font-size: 14.5px;
+      line-height: 1.65;
+      color: var(--ink);
+      background: var(--bg);
+      min-height: 100vh;
+    }
+
+    /* ── HEADER ── */
+    .app-header {
+      background: var(--primary);
+      height: 50px;
+      padding: 0 20px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      position: sticky; top: 0; z-index: 200;
+      box-shadow: 0 2px 10px rgba(0,0,0,.22);
+    }
+    .app-header h1 {
+      font-size: 14px;
+      font-weight: 600;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      color: rgba(255,255,255,.92);
+    }
+    .app-header h1 em {
+      font-style: normal;
+      font-weight: 300;
+      opacity: .55;
+      margin-left: 10px;
+      font-size: 11.5px;
+      letter-spacing: .04em;
+      text-transform: none;
+    }
+    #github-status {
+      font-family: 'DM Mono', monospace;
+      font-size: 11px;
+      color: rgba(255,255,255,.88);
+      background: rgba(255,255,255,.1);
+      padding: 3px 11px;
+      border-radius: 20px;
+      border: 1px solid rgba(255,255,255,.18);
+    }
+
+    /* ── TOOLBAR ── */
+    .toolbar {
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      padding: 8px 20px;
+      display: flex;
+      align-items: center;
+      gap: 5px;
+      flex-wrap: wrap;
+      box-shadow: var(--shadow);
+    }
+    .tsep { width:1px; height:20px; background:var(--border2); margin:0 3px; }
+
+    /* ── BUTTONS ── */
+    button {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      font-weight: 500;
+      padding: 6px 14px;
+      border: none;
+      border-radius: var(--r);
+      cursor: pointer;
+      transition: background var(--t), transform var(--t);
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      white-space: nowrap;
+    }
+    button:active { transform: scale(.97); }
+
+    .btn-save    { background: var(--accent); color:#fff; padding:6px 18px; box-shadow:0 2px 6px rgba(42,122,82,.3); }
+    .btn-save:hover { background: var(--primary); }
+    .btn-ghost   { background: transparent; color: var(--ink2); border: 1px solid var(--border2); }
+    .btn-ghost:hover { background: var(--accent-l); border-color: var(--accent); color: var(--primary); }
+    .btn-red     { background: transparent; color: var(--danger); border: 1px solid #f0d4d4; }
+    .btn-red:hover { background: var(--danger); color: #fff; }
+    .btn-add     { background: var(--accent); color: #fff; padding:3px 11px; font-size:12.5px; border-radius:4px; }
+    .btn-add:hover { background: var(--primary); }
+    .btn-primary { background: var(--primary); color: #fff; padding: 7px 20px; }
+    .btn-primary:hover { background: var(--primary-h); }
+    .btn-muted   { background: var(--pill-bg); color: var(--ink2); border: 1px solid var(--border); }
+    .btn-muted:hover { background: var(--border); }
+
+    /* ── LAYOUT ── */
+    .wrap {
+      max-width: 1500px;
+      margin: 0 auto;
+      padding: 14px 20px 0;
+    }
+
+    /* ── TABELA DE SEÇÕES ── */
+    .sections-table {
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      box-shadow: var(--shadow);
+      overflow: hidden;
+    }
+
+    .sec-row {
+      display: flex;
+      align-items: flex-start;
+      border-bottom: 1px solid var(--border);
+      transition: background var(--t);
+    }
+    .sec-row:last-child { border-bottom: none; }
+    .sec-row:nth-child(even) { background: var(--row-alt); }
+
+    .sec-label {
+      flex-shrink: 0;
+      width: 128px;
+      padding: 13px 12px 11px 16px;
+      font-size: 11px;
+      font-weight: 600;
+      letter-spacing: .09em;
+      text-transform: uppercase;
+      color: var(--ink3);
+      border-right: 2px solid var(--border2);
+      user-select: none;
+    }
+
+    .sec-content {
+      flex: 1;
+      padding: 8px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+
+    /* ── SORTABLE ZONE ── */
+    .sortable-zone {
+      display: flex;
+      flex-direction: row;
+      flex-wrap: wrap;
+      gap: 4px;
+      min-height: 8px;
+    }
+
+    /* ── ITEMS ── */
+    .item {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      background: var(--pill-bg);
+      border: 1px solid var(--border2);
+      border-radius: 6px;
+      padding: 5px 12px 5px 8px;
+      cursor: grab;
+      transition: background var(--t), border-color var(--t), box-shadow var(--t);
+      user-select: none;
+      width: fit-content;
+      max-width: 100%;
+    }
+    .item:hover { background: #fff; border-color: var(--accent); box-shadow: 0 1px 6px rgba(42,122,82,.15); }
+    .item:active { cursor: grabbing; }
+    .item:has(input:checked) { background: #6aaa88; border-color: #5a9a78; }
+    .item:has(input:checked) label { color: #fff; }
+    .item input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
+    .item:has(input:checked) input[type=checkbox] { accent-color: #fff; }
+    .item label { font-size: 13.5px; line-height: 1.4; color: var(--ink); cursor: pointer; }
+
+    /* Itens dinâmicos em linha própria */
+    .item.item-dinamico { width: 100%; border-radius: 6px; }
+
+    /* ── CONTROLES SEDAÇÃO ── */
+    .ctrl-row {
+      display: flex;
+      flex-wrap: wrap;
+      align-items: center;
+      gap: 5px;
+      padding: 6px 10px;
+      background: var(--row-alt);
+      border: 1px solid var(--border);
+      border-radius: var(--r);
+    }
+    .ctrl-row span { font-size: 13px; color: var(--ink3); font-weight: 500; }
+
+    /* ── SELECTS ── */
+    select {
+      font-family: 'DM Sans', sans-serif;
+      font-size: 13px;
+      padding: 3px 6px;
+      border: 1px solid var(--border2);
+      border-radius: 4px;
+      background: var(--panel);
+      color: var(--ink);
+      cursor: pointer;
+      transition: border-color var(--t);
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+
+    /* ── POPUPS ── */
+    .backdrop {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(5,20,12,.4);
+      z-index: 9997;
+      backdrop-filter: blur(3px);
+    }
+    .backdrop.show { display: block; }
+
+    .popup {
+      display: none;
+      position: fixed; top: 50%; left: 50%;
+      transform: translate(-50%, -50%);
+      width: min(96vw, 860px);
+      max-height: 88vh;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 10px;
+      padding: 22px 26px 20px;
+      z-index: 9998;
+      box-shadow: var(--shadow-m);
+      overflow-y: auto;
+    }
+    .popup h3 {
+      display: block;
+      font-size: 15px;
+      font-weight: 600;
+      color: var(--primary);
+      margin-bottom: 14px;
+      padding-bottom: 10px;
+      border-bottom: 1px solid var(--border);
+    }
+    #checkbox-list { max-height: 52vh; overflow-y: auto; padding-right: 4px; }
+    .edit-group { padding: 10px 0; border-bottom: 1px solid var(--border); }
+    .edit-group strong { display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink3); }
+    .edit-group input[type=text] { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 5px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 320px; transition: border-color var(--t); }
+    .edit-group textarea, .popup textarea { font-family: 'DM Sans', sans-serif; font-size: 13.5px; padding: 6px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 100%; resize: vertical; transition: border-color var(--t); }
+    .edit-group textarea { height: 60px; margin-top: 4px; }
+    .popup textarea { height: 120px; }
+    .edit-group input:focus, .edit-group textarea:focus, .popup input:focus, .popup textarea:focus { outline: none; border-color: var(--accent); }
+    .popup label { display: block; font-size: 13px; font-weight: 500; color: var(--ink2); margin: 10px 0 4px; }
+    .popup input[type=text] { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 6px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 100%; }
+    .popup select { font-size: 13.5px; padding: 5px 8px; margin-bottom: 2px; }
+    .popup-footer { display: flex; gap: 7px; margin-top: 14px; flex-wrap: wrap; }
+
+    /* ── MODAL SENHA ── */
+    #senha-overlay {
+      display: none;
+      position: fixed; inset: 0;
+      background: rgba(5,20,12,.5);
+      z-index: 99998;
+      align-items: center; justify-content: center;
+      backdrop-filter: blur(4px);
+    }
+    #senha-overlay.show { display: flex; }
+    #senha-box { background: var(--panel); border: 1px solid var(--border); border-radius: 10px; padding: 28px 32px; min-width: 320px; text-align: center; box-shadow: var(--shadow-m); }
+    #senha-box p { font-size: 14px; font-weight: 500; color: var(--ink); margin-bottom: 14px; }
+    #senha-box input[type=password] { font-family: 'DM Sans', sans-serif; width: 100%; padding: 8px 12px; font-size: 14px; border: 1px solid var(--border2); border-radius: 6px; background: var(--row-alt); color: var(--ink); margin-bottom: 14px; transition: border-color var(--t); }
+    #senha-box input:focus { outline: none; border-color: var(--accent); }
+    #senha-box .btns { display: flex; gap: 7px; justify-content: center; }
+
+    /* ── OUTPUT ── */
+    .output-wrap { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+    .output-bar { background: var(--row-alt); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap; }
+    #output { font-family: 'DM Sans', Arial, sans-serif; font-size: 14px; line-height: 1.3; padding: 16px 20px; min-height: 220px; outline: none; white-space: pre-wrap; color: var(--ink); }
+    #output:focus { background: #fdfffe; }
+
+    /* ── TOAST ── */
+    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--primary); color: #c8eedd; padding: 8px 22px; border-radius: 20px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 18px rgba(0,0,0,.22); z-index: 99999; opacity: 0; pointer-events: none; transition: transform .2s ease, opacity .2s ease; white-space: nowrap; }
+    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
+
+    footer { text-align: center; padding: 10px 20px; font-size: 11px; color: var(--ink3); font-family: 'DM Mono', monospace; letter-spacing: .04em; }
+
+    ::-webkit-scrollbar { width: 5px; height: 5px; }
+    ::-webkit-scrollbar-track { background: transparent; }
+    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
+
+    .ui-sortable-helper { opacity: .82; box-shadow: 0 4px 16px rgba(0,0,0,.18) !important; }
+    .ui-sortable-placeholder { border: 2px dashed var(--accent) !important; background: var(--accent-l) !important; border-radius: 6px; visibility: visible !important; height: 34px; }
+  </style>
+</head>
+<body>
+
+<header class="app-header">
+  <h1>🔭 Endoscopia Digestiva Alta <em>Gerador de Laudo</em></h1>
+  <span id="github-status"></span>
+</header>
+
+<div class="toolbar">
+  <button class="btn-save" onclick="salvarDados()">💾 Salvar no GitHub</button>
+  <div class="tsep"></div>
+  <button class="btn-ghost" onclick="uncheckAll()">✕ Limpar</button>
+  <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
+  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
+  <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
+</div>
+
+<div id="toast"></div>
+<div class="backdrop" id="backdrop" onclick="fecharTodosPopups()"></div>
+
+<!-- POPUP EDITAR -->
+<div class="popup" id="popup">
+  <h3>✏️ Editar Item</h3>
+  <div id="checkbox-list"></div>
+  <div class="popup-footer">
+    <button class="btn-ghost" onclick="fecharTodosPopups()">Fechar</button>
+    <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
+  </div>
+</div>
+
+<!-- POPUP CRIAR -->
+<div class="popup" id="create-popup">
+  <h3>＋ Criar Novo Item</h3>
+  <label for="section-select">Seção</label>
+  <select id="section-select">
+    <option value="sortable-equipamento">Equipamento</option>
+    <option value="sortable-sedacao">Sedação</option>
+    <option value="sortable-esofago">Esôfago</option>
+    <option value="sortable-estomago">Estômago</option>
+    <option value="sortable-duodeno">Duodeno</option>
+    <option value="sortable-jejuno">Jejuno</option>
+    <option value="sortable-conclusao">Conclusão</option>
+    <option value="sortable-outros">Outros</option>
+  </select>
+  <label for="checkbox-name">Nome do item</label>
+  <input type="text" id="checkbox-name" placeholder="Ex: GIF-H290">
+  <label for="checkbox-value">Texto do laudo</label>
+  <textarea id="checkbox-value" placeholder="Texto que será inserido no laudo…"></textarea>
+  <div class="popup-footer">
+    <button class="btn-primary" onclick="createCheckbox()">✅ Criar</button>
+    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
+  </div>
+</div>
+
+<!-- MODAL SENHA -->
+<div id="senha-overlay">
+  <div id="senha-box">
+    <p id="senha-msg">🔐 Digite a senha para ativar o GitHub:</p>
+    <input type="password" id="senha-input" placeholder="Senha" autocomplete="current-password">
+    <div class="btns">
+      <button class="btn-primary" id="senha-ok">Confirmar</button>
+      <button class="btn-ghost"   id="senha-cancelar">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div class="wrap">
+  <div class="sections-table">
+
+    <!-- EQUIPAMENTO -->
+    <div class="sec-row">
+      <div class="sec-label">Equipamento</div>
+      <div class="sec-content" id="equipamento">
+        <div id="sortable-equipamento" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- SEDAÇÃO -->
+    <div class="sec-row">
+      <div class="sec-label">Sedação</div>
+      <div class="sec-content" id="Sedação">
+        <div id="sortable-sedacao" class="sortable-zone ui-sortable">
+          <!-- item fixo de sedação dinâmica -->
+          <div class="item ui-sortable-handle" style="cursor:default;border-radius:6px;width:fit-content;">
+            <input type="checkbox" id="sedacao-sortable" name="sedacao" value="">
+            <div class="ctrl-row" style="border:none;padding:0;background:transparent;">
+              <span>Fentanil</span>
+              <select id="fentanil"></select>
+              <span>+ Midazolam</span>
+              <select id="midazolam"></select>
+              <span>+ Propofol titulado</span>
+              <button class="btn-add" onclick="addParametersedacao()">＋</button>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ESÔFAGO -->
+    <div class="sec-row">
+      <div class="sec-label">Esôfago</div>
+      <div class="sec-content" id="Esôfago">
+        <div id="sortable-esofago" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- ESTÔMAGO -->
+    <div class="sec-row">
+      <div class="sec-label">Estômago</div>
+      <div class="sec-content" id="Estômago">
+        <div id="sortable-estomago" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- DUODENO -->
+    <div class="sec-row">
+      <div class="sec-label">Duodeno</div>
+      <div class="sec-content" id="Duodeno">
+        <div id="sortable-duodeno" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- JEJUNO -->
+    <div class="sec-row">
+      <div class="sec-label">Jejuno</div>
+      <div class="sec-content" id="Jejuno">
+        <div id="sortable-jejuno" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- CONCLUSÃO -->
+    <div class="sec-row">
+      <div class="sec-label">Conclusão</div>
+      <div class="sec-content" id="Conclusão">
+        <div id="sortable-conclusao" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- OUTROS -->
+    <div class="sec-row" style="border-bottom:none;">
+      <div class="sec-label">Outros</div>
+      <div class="sec-content" id="Outros">
+        <div id="sortable-outros" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+  </div>
+
+  <!-- OUTPUT -->
+  <div class="output-wrap">
+    <div class="output-bar">
+      <button class="btn-primary" onclick="generateText()">📋 Gerar e Copiar Laudo</button>
+      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
+      <button class="btn-muted"   onclick="copiarConteudo()">📄 Copiar texto</button>
+      <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
+    </div>
+    <div id="output" contenteditable="true"></div>
+  </div>
+</div>
+
+<footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>
+
+<script>
+function fecharTodosPopups() {
+  document.getElementById('popup').style.display        = 'none';
+  document.getElementById('create-popup').style.display = 'none';
+  document.getElementById('backdrop').classList.remove('show');
+  document.getElementById('checkbox-list').innerHTML    = '';
+}
+document.addEventListener('DOMContentLoaded', function () {
+  var origShow  = showPopup;
+  var origShow2 = showCreatePopup;
+  window.showPopup = function () {
+    origShow();
+    if (document.getElementById('popup').style.display !== 'none')
+      document.getElementById('backdrop').classList.add('show');
+  };
+  window.showCreatePopup = function () {
+    origShow2();
+    document.getElementById('backdrop').classList.add('show');
+  };
+  window.hidePopup = function () {
+    document.getElementById('popup').style.display = 'none';
+    document.getElementById('checkbox-list').innerHTML = '';
+    document.getElementById('backdrop').classList.remove('show');
+  };
+  window.hideCreatePopup = function () {
+    document.getElementById('create-popup').style.display = 'none';
+    document.getElementById('backdrop').classList.remove('show');
+  };
+});
+</script>
+</body>
+</html>

@@ -518,18 +518,10 @@ function fecharTodosPopups() {
   document.getElementById('backdrop').classList.remove('show');
   document.getElementById('checkbox-list').innerHTML    = '';
 }
-document.addEventListener('DOMContentLoaded', function () {
-  var origShow  = showPopup;
-  var origShow2 = showCreatePopup;
-  window.showPopup = function () {
-    origShow();
-    if (document.getElementById('popup').style.display !== 'none')
-      document.getElementById('backdrop').classList.add('show');
-  };
-  window.showCreatePopup = function () {
-    origShow2();
-    document.getElementById('backdrop').classList.add('show');
-  };
+// showPopup, showCreatePopup, hidePopup, hideCreatePopup são definidos
+// em funcoes_eda.js após o carregamento assíncrono.
+// O backdrop é controlado diretamente naquelas funções.
+{
   window.hidePopup = function () {
     document.getElementById('popup').style.display = 'none';
     document.getElementById('checkbox-list').innerHTML = '';
@@ -539,7 +531,7 @@ document.addEventListener('DOMContentLoaded', function () {
     document.getElementById('create-popup').style.display = 'none';
     document.getElementById('backdrop').classList.remove('show');
   };
-});
+}
 </script>
 </body>
 </html>

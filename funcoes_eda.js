@@ -458,44 +458,70 @@ async function salvarDados() {
     token = sessionStorage.getItem('colono_github_token');
   }
 
-  if (!token || !c.owner || !c.repo) {
-    mostrarToast('⚠️ GitHub não configurado. Verifique config.js.', '#7a4000');
+  // Diagnóstico detalhado de configuração ausente
+  if (!c.owner || !c.repo) {
+    mostrarToast('⚠️ Verifique config.js: owner e repo são obrigatórios.', '#7a4000');
+    return;
+  }
+  if (!token) {
+    mostrarToast('⚠️ Token GitHub ausente. Configure token ou tokenCriptografado em config.js.', '#7a4000');
     return;
   }
 
-  var dbAtualizado = coletarDB();
-  var apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + c.path;
+  // branch com fallback seguro
+  var branch  = c.branch || 'main';
+  var path    = c.path   || 'dados_eda.js';
+  var apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + path;
   var headers = {
     'Authorization': 'token ' + token,
     'Accept':        'application/vnd.github+json',
     'Content-Type':  'application/json'
   };
 
+  var dbAtualizado = coletarDB();
   mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a');
   try {
-    var getResp = await fetch(apiBase + '?ref=' + c.branch, { headers: headers });
+    // Busca SHA atual do arquivo (necessário para atualizar)
+    var getResp = await fetch(apiBase + '?ref=' + encodeURIComponent(branch), { headers: headers });
+
     if (!getResp.ok && getResp.status !== 404) {
-      var err = await getResp.json();
-      throw new Error(err.message || 'HTTP ' + getResp.status);
+      var errGet = await getResp.json().catch(function () { return {}; });
+      throw new Error(errGet.message || 'Erro ao buscar arquivo: HTTP ' + getResp.status);
     }
-    var getSha      = getResp.ok ? (await getResp.json()).sha : undefined;
+
+    var getSha = undefined;
+    if (getResp.ok) {
+      var getData = await getResp.json().catch(function () { return {}; });
+      getSha = getData.sha;
+    }
+
     var conteudo    = montarConteudoJS(dbAtualizado);
     var conteudoB64 = btoa(unescape(encodeURIComponent(conteudo)));
     var body = {
       message: 'Atualização via interface EDA — ' + new Date().toLocaleString('pt-BR'),
       content: conteudoB64,
-      branch:  c.branch
+      branch:  branch
     };
     if (getSha) body.sha = getSha;
+
     var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
     if (!putResp.ok) {
-      var err2 = await putResp.json();
-      throw new Error(err2.message || 'HTTP ' + putResp.status);
+      var errPut = await putResp.json().catch(function () { return {}; });
+      // Mensagens amigáveis para erros comuns
+      var msg = errPut.message || ('HTTP ' + putResp.status);
+      if (putResp.status === 401) msg = 'Token inválido ou expirado (401). Gere um novo em GitHub → Settings → Tokens.';
+      if (putResp.status === 403) msg = 'Sem permissão de escrita (403). O token precisa do escopo "repo" ou "contents:write".';
+      if (putResp.status === 404) msg = 'Repositório ou caminho não encontrado (404). Verifique owner, repo e path no config.js.';
+      if (putResp.status === 409) msg = 'Conflito de SHA (409). Outro push ocorreu ao mesmo tempo — tente novamente.';
+      if (putResp.status === 422) msg = 'SHA inválido (422). O arquivo pode ter mudado. Recarregue a página e tente de novo.';
+      throw new Error(msg);
     }
+
     Object.assign(_DB, dbAtualizado);
     mostrarToast('✅ dados_eda.js salvo no GitHub!', '#1a3a1a');
   } catch (e) {
     mostrarToast('❌ Erro: ' + e.message, '#7a1a1a');
+    console.error('[salvarDados] Detalhes:', e);
   }
 }
 

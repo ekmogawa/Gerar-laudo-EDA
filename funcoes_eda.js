@@ -977,6 +977,79 @@ async function copiarFormatado() {
   mostrarToast('🖨️ Copiado em Arial 11!');
 }
 
+// ============================================================
+// REVISÃO COM INTELIGÊNCIA ARTIFICIAL (OpenAI)
+// ============================================================
+
+async function revisarComIA() {
+  var output = document.getElementById('output');
+  
+  // Verifica se há texto gerado
+  if (!output || !output.innerText.trim()) {
+    mostrarToast('⚠️ Nenhum texto para revisar. Gere o laudo primeiro.', '#7a4000', 4000);
+    return;
+  }
+
+  // Pede a chave da API se não estiver salva na sessão
+  var apiKey = sessionStorage.getItem('openai_api_key');
+  if (!apiKey) {
+    apiKey = prompt('🔑 Insira sua chave de API da OpenAI (sk-...):\n\nA chave será salva apenas nesta sessão do navegador.');
+    if (!apiKey) return; // Usuário cancelou
+    sessionStorage.setItem('openai_api_key', apiKey.trim());
+  }
+
+  var textoOriginal = output.innerHTML;
+  mostrarToast('🤖 Revisando com IA... Aguarde.', '#1a2e3a', 15000);
+
+  try {
+    // Chamada à API da OpenAI (modelo gpt-4o-mini pelo custo-benefício e rapidez)
+    var response = await fetch('https://api.openai.com/v1/chat/completions', {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': 'Bearer ' + apiKey
+      },
+      body: JSON.stringify({
+        model: 'gpt-4o-mini',
+        messages:[
+          {
+            role: 'system',
+            content: 'Você é um médico endoscopista experiente revisando um laudo de Endoscopia Digestiva Alta. Seu objetivo é corrigir eventuais erros gramaticais, melhorar a fluidez, remover redundâncias e garantir um tom médico profissional. IMPORTANTE: Mantenha estritamente as tags HTML de formatação presentes no texto (como <br>, <strong> e <span>). Não adicione informações clínicas inventadas que não estejam no texto original. Retorne apenas o código HTML final revisado.'
+          },
+          {
+            role: 'user',
+            content: 'Revise o seguinte laudo mantendo o HTML original:\n\n' + textoOriginal
+          }
+        ],
+        temperature: 0.3 // Temperatura baixa para respostas mais conservadoras/precisas
+      })
+    });
+
+    if (!response.ok) {
+      if (response.status === 401) {
+        sessionStorage.removeItem('openai_api_key');
+        throw new Error('Chave de API inválida. Tente novamente.');
+      }
+      var erroJson = await response.json().catch(function() { return {}; });
+      throw new Error(erroJson.error?.message || 'Erro HTTP ' + response.status);
+    }
+
+    var data = await response.json();
+    var textoRevisado = data.choices[0].message.content;
+
+    // Limpa possíveis formatações de markdown que a IA possa adicionar acidentalmente
+    textoRevisado = textoRevisado.replace(/^```html\n?/i, '').replace(/\n?```$/i, '');
+
+    // Atualiza a tela com o texto revisado
+    output.innerHTML = textoRevisado;
+    mostrarToast('✅ Revisão concluída!', '#1a3a1a');
+
+  } catch (error) {
+    console.error('[revisarComIA] Erro:', error);
+    mostrarToast('❌ Erro na revisão: ' + error.message, '#7a1a1a', 7000);
+  }
+}
+
 // ----------------------------------------------------------
 // INICIALIZA
 // ----------------------------------------------------------

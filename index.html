@@ -344,9 +344,10 @@
     ::-webkit-scrollbar-track { background: transparent; }
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
-    .ui-sortable-helper { opacity: .82; box-shadow: 0 4px 16px rgba(0,0,0,.18) !important; }
-    .item.drag-over  { outline: 2px dashed var(--accent); background: var(--accent-l) !important; }
-    .item.dragging   { opacity: .45; }
+    /* drag via pointer events — sem jQuery UI */
+    [data-ph="1"] { pointer-events: none; }
+    .sortable-zone { cursor: grab; }
+    .sortable-zone:active { cursor: grabbing; }
   </style>
 </head>
 <body>

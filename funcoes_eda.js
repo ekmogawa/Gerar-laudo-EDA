@@ -914,10 +914,11 @@ function generateText() {
 
   $('#output').html(text);
   var output = document.getElementById('output');
+  var htmlFormatado = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
 
   if (navigator.clipboard && window.ClipboardItem) {
     navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([output.innerHTML], { type: 'text/html' }),
+      'text/html':  new Blob([htmlFormatado], { type: 'text/html' }),
       'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
     })]).then(function () {
       mostrarToast('📋 Laudo gerado e copiado!', '#1a3a1a');
@@ -945,9 +946,10 @@ function copiarPorSelecao(output) {
 
 function copiarConteudo() {
   var output = document.getElementById('output');
+  var htmlFormatado = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
   if (navigator.clipboard && window.ClipboardItem) {
     navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([output.innerHTML], { type: 'text/html' }),
+      'text/html':  new Blob([htmlFormatado], { type: 'text/html' }),
       'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
     })]).then(function () {
       mostrarToast('📄 Texto copiado!');
@@ -960,19 +962,19 @@ function copiarConteudo() {
 
 async function copiarFormatado() {
   var output = document.getElementById('output');
-  var html = '<div style="font-family:Arial,sans-serif;font-size:11pt;">' + output.innerHTML + '</div>';
+  var html = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
   if (navigator.clipboard && window.ClipboardItem) {
     try {
       await navigator.clipboard.write([new ClipboardItem({
         'text/html':  new Blob([html],              { type: 'text/html' }),
         'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
       })]);
-      mostrarToast('🖨️ Copiado em fonte 11!');
+      mostrarToast('🖨️ Copiado em Arial 12!');
       return;
     } catch (e) { /* fallback */ }
   }
   copiarPorSelecao(output);
-  mostrarToast('🖨️ Copiado em fonte 11!');
+  mostrarToast('🖨️ Copiado em Arial 12!');
 }
 
 // ----------------------------------------------------------

@@ -182,7 +182,7 @@ const DB_PADRAO = {
       "nome": "Restos alim",
       "valor": "Presença de moderada quantidade de restos alimentares sólidos em câmara gástrica. Optado por interrupção do exame devido a risco de broncoaspiração."
     },
-    <br>
+
     {
       "nome": "GCA C-1 gast at",
       "id": "checkbox18",
@@ -237,7 +237,7 @@ const DB_PADRAO = {
       "id": "checkboxmi",
       "valor": ""
     },
-      <br>
+  
     {
       "nome": "Fundop",
       "id": "checkbox23",
@@ -376,7 +376,7 @@ const DB_PADRAO = {
       "nome": "Lig Varizes",
       "valor": "- Ligadura elástica de varizes esofágicas. Revisão endoscópica em 6 semanas. Prescrito IBP por 14 dias e realizadas orientações de dieta, repouso relativo e de sinais de alerta."
     },
-    <br>
+
     {
       "nome": "Pang en leve",
       "id": "checkbox37",
@@ -495,7 +495,7 @@ const DB_PADRAO = {
       "nome": "Desc. GTT",
       "valor": "- Realizada gastrostomia endoscópica sem intercorrências.\n"
     },
-    <br>
+    { "separador": true },
     {
       "nome": "BD en",
       "id": "checkbox54",
@@ -520,7 +520,7 @@ const DB_PADRAO = {
       "nome": "SNE",
       "valor": "- Passagem de sonda nasoenteral."
     },
-    <br>
+    { "separador": true },
     {
       "nome": "Urease-",
       "id": "checkbox57",
@@ -549,7 +549,7 @@ const DB_PADRAO = {
       "nome": "Obs ATB",
       "valor": "<br>Obs: o uso de antibióticos nos 30 dias que antecedem a endoscopia digestiva alta causa redução significante da sensibilidade dos testes de detecção de H. pylori."
     },
-    <br>
+    { "separador": true },
     {
       "nome": "Alça",
       "valor": "Material especial: alça de polipectomia."

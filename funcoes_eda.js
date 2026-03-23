@@ -155,11 +155,18 @@ function ativarItem(item) {
   if (item.getAttribute('data-sep') === '1') return;
 
   item.addEventListener('pointerdown', function (e) {
-    // Permite interação normal com checkbox e botões
+    // Clique direto no checkbox — deixa o browser tratar normalmente
     if (e.target.matches('input[type=checkbox], button, select')) return;
     if (e.button !== 0) return;
 
-    // setPointerCapture removido — capturava eventos e impedia clique no checkbox
+    // preventDefault aqui (síncrono) suprime o evento 'click' nativo que viria depois
+    // Isso permite que o toggle seja feito manualmente no onUp sem duplicação
+    e.preventDefault();
+
+    // setPointerCapture é essencial para o drag: garante que pointermove e pointerup
+    // continuem chegando mesmo quando o ponteiro sai do elemento
+    item.setPointerCapture(e.pointerId);
+
     var zone       = item.closest('.sortable-zone');
     var rect       = item.getBoundingClientRect();
     var offX       = e.clientX - rect.left;
@@ -171,7 +178,6 @@ function ativarItem(item) {
 
     function startDrag() {
       moved = true;
-      e.preventDefault(); // só previne o clique se for realmente um drag
 
       ph = document.createElement('div');
       ph.className = 'item';
@@ -182,11 +188,8 @@ function ativarItem(item) {
         'border:2px dashed var(--accent);background:var(--accent-l);' +
         'border-radius:6px;pointer-events:none;flex-shrink:0;';
       zone.insertBefore(ph, item);
-
-      // Esconde item SEM ocupar espaço
       item.style.display = 'none';
 
-      // Ghost — clone visual que segue o cursor
       ghost = item.cloneNode(true);
       ghost.style.cssText =
         'position:fixed;z-index:9999;pointer-events:none;' +
@@ -205,11 +208,9 @@ function ativarItem(item) {
         if (Math.sqrt(dx*dx + dy*dy) < 5) return;
         startDrag();
       }
-
       ghost.style.left = (ev.clientX - offX) + 'px';
       ghost.style.top  = (ev.clientY - offY) + 'px';
 
-      // Zona sob o cursor
       ghost.style.visibility = 'hidden';
       var elUnder = document.elementFromPoint(ev.clientX, ev.clientY);
       ghost.style.visibility = '';
@@ -220,7 +221,6 @@ function ativarItem(item) {
         targetZone.appendChild(ph);
         lastTarget = undefined;
       }
-
       var after = getAfterElement(targetZone, ev.clientX, ev.clientY, ph);
       var key   = after || null;
       if (key === lastTarget) return;
@@ -228,19 +228,18 @@ function ativarItem(item) {
       after ? targetZone.insertBefore(ph, after) : targetZone.appendChild(ph);
     }
 
-    function onUp(ev) {
+    function onUp() {
       item.removeEventListener('pointermove',   onMove);
       item.removeEventListener('pointerup',     onUp);
       item.removeEventListener('pointercancel', onUp);
 
       if (moved) {
-        // Solta na posição do placeholder
         if (ph && ph.parentElement) ph.parentElement.insertBefore(item, ph);
         if (ph)    ph.remove();
         if (ghost) ghost.remove();
         item.style.display = '';
       } else {
-        // Clique simples — togula o checkbox
+        // Clique simples: toggle manual (click nativo foi suprimido pelo preventDefault)
         var cb = item.querySelector('input[type=checkbox]');
         if (cb) {
           cb.checked = !cb.checked;
@@ -249,7 +248,6 @@ function ativarItem(item) {
       }
     }
 
-    // Não chama preventDefault aqui — deixa o clique natural funcionar
     item.addEventListener('pointermove',   onMove);
     item.addEventListener('pointerup',     onUp);
     item.addEventListener('pointercancel', onUp);

@@ -892,7 +892,7 @@ function generateText() {
     conclusaoText = conclusaoText.replace(/atrófica/, "atrófica com metaplasia intestinal");
   }
 
-  if (conclusaoText) text += "<br><br><br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
+  if (conclusaoText) text += "<br><br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
 
   if ($("#Outros input[type='checkbox']:checked").length > 0) {
     text = text.replace("<strong style='bold'>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>", "");

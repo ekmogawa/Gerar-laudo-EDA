@@ -533,5 +533,19 @@ function fecharTodosPopups() {
   };
 }
 </script>
+
+  <!-- OUTPUT -->
+    <div class="output-wrap">
+      <div class="output-bar">
+        <button class="btn-primary" onclick="generateText()">📋 Gerar e Copiar Laudo</button>
+        <!-- NOVO BOTÃO DE IA AQUI -->
+        <button class="btn-save" onclick="revisarComIA()" style="background-color: var(--ink2); box-shadow: 0 2px 6px rgba(61,92,70,.3);">🤖 Revisar com IA</button>
+        
+        <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
+        <button class="btn-muted"   onclick="copiarConteudo()">📄 Copiar texto</button>
+        <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
+      </div>
+      <div id="output" contenteditable="true"></div>
+    </div>
 </body>
 </html>

@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 23/03/2026, 12:27:05
+// Salvo em: 23/03/2026, 12:29:04
 // ============================================================
 
 var DB_PADRAO = {
@@ -30,10 +30,6 @@ var DB_PADRAO = {
     {
       "nome": "GIF-HQ190",
       "valor": "Exame realizado com equipamento Olympus GIF-HQ190, que possui imagem HD, near focus e cromoscopia digital."
-    },
-    {
-      "nome": "asdf",
-      "valor": ""
     }
   ],
   "sedacao": [

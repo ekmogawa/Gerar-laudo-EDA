@@ -134,14 +134,7 @@ function inicializarSortable() {
    '#sortable-estomago','#sortable-duodeno','#sortable-jejuno',
    '#sortable-conclusao','#sortable-outros']
   .forEach(function (sel) {
-    $(sel).sortable({
-      cancel: '[data-sep="1"]',
-      update: function () {
-        var c = $(this), items = c.children('.item').get();
-        c.empty();
-        items.forEach(function (i) { c.append(i); c.append('\n'); });
-      }
-    });
+    $(sel).sortable({ cancel: '[data-sep="1"]' });
   });
 }
 

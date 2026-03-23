@@ -7,9 +7,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="https://code.jquery.com/ui/1.13.0/themes/smoothness/jquery-ui.css">
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
-  <script src="https://code.jquery.com/ui/1.13.0/jquery-ui.min.js"></script>
 
   <!-- ① Configuração GitHub -->
   <script src="config.js"></script>
@@ -347,7 +345,8 @@
     ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
 
     .ui-sortable-helper { opacity: .82; box-shadow: 0 4px 16px rgba(0,0,0,.18) !important; }
-    .ui-sortable-placeholder { border: 2px dashed var(--accent) !important; background: var(--accent-l) !important; border-radius: 6px; visibility: visible !important; height: 34px; }
+    .item.drag-over  { outline: 2px dashed var(--accent); background: var(--accent-l) !important; }
+    .item.dragging   { opacity: .45; }
   </style>
 </head>
 <body>

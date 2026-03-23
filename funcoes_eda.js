@@ -884,7 +884,7 @@ function generateText() {
 
   var conclusaoText = "";
   $("#Conclusão input[type='checkbox']:checked").each(function() {
-    conclusaoText += "<br>" + $(this).val() + "<br>";
+    conclusaoText += $(this).val() + "<br>";
   });
 
   if ($("#checkboxmi").is(":checked") || $("input[name='MI']").is(":checked")) {
@@ -892,7 +892,7 @@ function generateText() {
     conclusaoText = conclusaoText.replace(/atrófica/, "atrófica com metaplasia intestinal");
   }
 
-  if (conclusaoText) text += "<br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
+  if (conclusaoText) text += "<br><br><br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
 
   if ($("#Outros input[type='checkbox']:checked").length > 0) {
     text = text.replace("<strong style='bold'>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>", "");

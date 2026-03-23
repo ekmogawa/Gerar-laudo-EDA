@@ -237,7 +237,7 @@ const DB_PADRAO = {
       "id": "checkboxmi",
       "valor": ""
     },
-  
+{ "separador": true },
     {
       "nome": "Fundop",
       "id": "checkbox23",
@@ -495,7 +495,7 @@ const DB_PADRAO = {
       "nome": "Desc. GTT",
       "valor": "- Realizada gastrostomia endoscópica sem intercorrências.\n"
     },
-    { "separador": true },
+
     {
       "nome": "BD en",
       "id": "checkbox54",
@@ -549,7 +549,6 @@ const DB_PADRAO = {
       "nome": "Obs ATB",
       "valor": "<br>Obs: o uso de antibióticos nos 30 dias que antecedem a endoscopia digestiva alta causa redução significante da sensibilidade dos testes de detecção de H. pylori."
     },
-    { "separador": true },
     {
       "nome": "Alça",
       "valor": "Material especial: alça de polipectomia."

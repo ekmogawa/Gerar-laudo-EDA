@@ -155,24 +155,26 @@ function ativarItem(item) {
   if (item.getAttribute('data-sep') === '1') return;
 
   item.addEventListener('pointerdown', function (e) {
-    // Ignora cliques em checkbox, label e botão
-    if (e.target.matches('input, label, button, select')) return;
+    // Permite interação normal com checkbox e botões
+    if (e.target.matches('input[type=checkbox], button, select')) return;
     if (e.button !== 0) return;
 
-    e.preventDefault();
+    // Captura o pointer para receber eventos fora do elemento
     item.setPointerCapture(e.pointerId);
 
-    var zone    = item.closest('.sortable-zone');
-    var rect    = item.getBoundingClientRect();
-    var offX    = e.clientX - rect.left;
-    var offY    = e.clientY - rect.top;
-    var moved   = false;
-    var ghost   = null;
-    var ph      = null;
+    var zone       = item.closest('.sortable-zone');
+    var rect       = item.getBoundingClientRect();
+    var offX       = e.clientX - rect.left;
+    var offY       = e.clientY - rect.top;
+    var moved      = false;
+    var ghost      = null;
+    var ph         = null;
     var lastTarget = undefined;
 
-    function createGhostAndPh() {
-      // Placeholder — ocupa o espaço original
+    function startDrag() {
+      moved = true;
+
+      // Placeholder — mesmas dimensões do item
       ph = document.createElement('div');
       ph.className = 'item';
       ph.setAttribute('data-ph', '1');
@@ -180,76 +182,77 @@ function ativarItem(item) {
         'width:'  + rect.width  + 'px;' +
         'height:' + rect.height + 'px;' +
         'border:2px dashed var(--accent);background:var(--accent-l);' +
-        'border-radius:6px;pointer-events:none;flex-shrink:0;opacity:.7;';
+        'border-radius:6px;pointer-events:none;flex-shrink:0;';
       zone.insertBefore(ph, item);
 
-      // Ghost — clone que segue o cursor
+      // Esconde item SEM ocupar espaço
+      item.style.display = 'none';
+
+      // Ghost — clone visual que segue o cursor
       ghost = item.cloneNode(true);
       ghost.style.cssText =
         'position:fixed;z-index:9999;pointer-events:none;' +
-        'width:'   + rect.width  + 'px;' +
+        'width:'  + rect.width + 'px;' +
         'opacity:.88;box-shadow:0 8px 24px rgba(0,0,0,.22);' +
         'transform:rotate(1.5deg) scale(1.03);' +
-        'transition:transform .1s ease;' +
         'left:' + (e.clientX - offX) + 'px;' +
         'top:'  + (e.clientY - offY) + 'px;';
       document.body.appendChild(ghost);
-
-      item.style.opacity = '0';
     }
 
-    function onMove(e) {
+    function onMove(ev) {
+      var dx = ev.clientX - (rect.left + offX);
+      var dy = ev.clientY - (rect.top  + offY);
       if (!moved) {
-        // Só inicia drag após mover 4px (evita drag acidental em cliques)
-        var dx = e.clientX - rect.left - offX;
-        var dy = e.clientY - rect.top  - offY;
-        if (Math.sqrt(dx*dx + dy*dy) < 4) return;
-        moved = true;
-        createGhostAndPh();
+        if (Math.sqrt(dx*dx + dy*dy) < 5) return;
+        startDrag();
       }
 
-      // Move o ghost
-      ghost.style.left = (e.clientX - offX) + 'px';
-      ghost.style.top  = (e.clientY - offY) + 'px';
+      ghost.style.left = (ev.clientX - offX) + 'px';
+      ghost.style.top  = (ev.clientY - offY) + 'px';
 
-      // Descobre a zona sob o cursor
-      ghost.style.display = 'none';
-      var elUnder = document.elementFromPoint(e.clientX, e.clientY);
-      ghost.style.display = '';
+      // Zona sob o cursor
+      ghost.style.visibility = 'hidden';
+      var elUnder = document.elementFromPoint(ev.clientX, ev.clientY);
+      ghost.style.visibility = '';
       var targetZone = elUnder ? elUnder.closest('.sortable-zone') : null;
       if (!targetZone) targetZone = zone;
 
-      // Move placeholder para a zona certa
       if (ph.parentElement !== targetZone) {
         targetZone.appendChild(ph);
         lastTarget = undefined;
       }
 
-      // Calcula posição dentro da zona
-      var after = getAfterElement(targetZone, e.clientX, e.clientY, ph);
+      var after = getAfterElement(targetZone, ev.clientX, ev.clientY, ph);
       var key   = after || null;
       if (key === lastTarget) return;
       lastTarget = key;
-      if (after) {
-        targetZone.insertBefore(ph, after);
-      } else {
-        targetZone.appendChild(ph);
-      }
+      after ? targetZone.insertBefore(ph, after) : targetZone.appendChild(ph);
     }
 
-    function onUp() {
-      item.removeEventListener('pointermove', onMove);
-      item.removeEventListener('pointerup',   onUp);
+    function onUp(ev) {
+      item.removeEventListener('pointermove',   onMove);
+      item.removeEventListener('pointerup',     onUp);
       item.removeEventListener('pointercancel', onUp);
 
-      if (moved && ph) {
-        ph.parentElement.insertBefore(item, ph);
-        ph.remove();
-        ghost.remove();
-        item.style.opacity = '';
+      if (moved) {
+        // Solta na posição do placeholder
+        if (ph && ph.parentElement) ph.parentElement.insertBefore(item, ph);
+        if (ph)    ph.remove();
+        if (ghost) ghost.remove();
+        item.style.display = '';
+      } else {
+        // Foi um clique simples — togula o checkbox
+        var cb = item.querySelector('input[type=checkbox]');
+        if (cb) {
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       }
     }
 
+    // Previne o comportamento padrão do label (que já está tratado acima)
+    e.preventDefault();
     item.addEventListener('pointermove',   onMove);
     item.addEventListener('pointerup',     onUp);
     item.addEventListener('pointercancel', onUp);

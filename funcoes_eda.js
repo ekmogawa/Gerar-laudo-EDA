@@ -65,6 +65,7 @@ function appendToSortable(elementId, div) {
 function popularCheckboxSection(containerId, itens) {
   var container = document.getElementById(containerId);
   if (!container) return;
+  container.innerHTML = ''; // limpa antes de popular — evita duplicação
   itens.forEach(function (item) {
     if (item.separador) {
       var sep = document.createElement('div');
@@ -106,6 +107,8 @@ function popularSelect(id, opcoes) {
 
 function inicializar() {
   if (!_DB) return;
+  if (window._inicializado) return; // guard — impede execução dupla
+  window._inicializado = true;
 
   popularCheckboxSection('sortable-equipamento', _DB.equipamento);
   popularCheckboxSection('sortable-sedacao',     _DB.sedacao);

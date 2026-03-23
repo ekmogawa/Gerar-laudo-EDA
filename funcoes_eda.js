@@ -160,8 +160,7 @@ function ativarItem(item) {
 
   // Click handler — só togula se não foi drag
   item.addEventListener('click', function (e) {
-    // label já togula o checkbox nativamente — excluir para evitar double-toggle
-    if (e.target.matches('input[type=checkbox], label, button, select')) return;
+    if (e.target.matches('input[type=checkbox], button, select')) return;
     if (wasDragged) { wasDragged = false; return; }
     var cb = item.querySelector('input[type=checkbox]');
     if (cb) {
@@ -248,10 +247,8 @@ function ativarItem(item) {
         if (ph)    ph.remove();
         if (ghost) ghost.remove();
         item.style.display = '';
-        // wasDragged permanece true — o click handler vai resetá-lo e ignorar o clique
-      } else {
-        wasDragged = false; // clique sem drag — garante que próximo clique funcione
       }
+      // se não moveu: o evento 'click' natural já vai cuidar do toggle
     }
 
     item.addEventListener('pointermove',   onMove);
@@ -319,12 +316,12 @@ function inicializarSincronizacaoCheckboxes() {
     if (name.includes('+')) {
       var partes = name.split('+');
       // Parte antes do +
-      document.querySelectorAll('#Conclusão input[name="' + partes[0] + '"]').forEach(function (cb) {
+      document.querySelectorAll('#conclusao-sec input[name="' + partes[0] + '"]').forEach(function (cb) {
         cb.checked = true;
       });
       // Parte depois do +
       if (partes[1]) {
-        document.querySelectorAll('#Conclusão input[name$="' + partes[1] + '"]').forEach(function (cb) {
+        document.querySelectorAll('#conclusao-sec input[name$="' + partes[1] + '"]').forEach(function (cb) {
           cb.checked = true;
         });
       }
@@ -446,7 +443,7 @@ function createCheckbox() {
   var cb = document.createElement('input');
   cb.type = 'checkbox'; cb.name = nome; cb.value = valor; cb.id = nome + '-' + sectionId;
   var lbl = document.createElement('label');
-  lbl.htmlFor = cb.id; lbl.innerHTML = nome;
+  lbl.htmlFor = cb.id; lbl.setAttribute('contenteditable', 'true'); lbl.innerHTML = nome;
   div.appendChild(cb); div.appendChild(lbl);
   section.appendChild(document.createTextNode('\n'));
   section.appendChild(div);
@@ -473,8 +470,10 @@ function serializarSecao(containerId) {
   if (!container) return [];
   var itens = [];
   container.querySelectorAll(':scope > .item').forEach(function (div) {
-    if (div.getAttribute('data-sep') === '1') { itens.push({ separador: true }); return; }
-    if (div.getAttribute('data-ph'))  return; // placeholder de drag — ignorar
+    if (div.getAttribute('data-sep') === '1') {
+      itens.push({ separador: true });
+      return;
+    }
     var cb = div.querySelector('input[type="checkbox"]');
     if (!cb || IDS_CONTROLE_EDA.has(cb.id) || IDS_CONTROLE_EDA.has(cb.name)) return;
     var label = div.querySelector('label');
@@ -741,6 +740,7 @@ async function salvarDados() {
   };
 
   console.log('[salvarDados] Iniciando. URL:', apiBase, '| branch:', branch);
+  console.log('[salvarDados] Token prefix:', token ? token.substring(0, 15) + '...' : 'VAZIO');
   mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a', 10000);
 
   try {
@@ -825,7 +825,7 @@ function generateText() {
   if (equipamentoText) text += equipamentoText;
 
   var sedacaoText = "";
-  $("#Sedação input[type='checkbox']:checked").each(function() {
+  $("#sedacao-sec input[type='checkbox']:checked").each(function() {
     sedacaoText += $(this).val() + "<br><br>";
   });
   if (sedacaoText) {
@@ -838,7 +838,7 @@ function generateText() {
 
   var esofagoText = "";
   var deslocadaFound = false;
-  $("#Esôfago input[type='checkbox']:checked").each(function() {
+  $("#esofago-sec input[type='checkbox']:checked").each(function() {
     var checkboxValue = $(this).val();
     if (checkboxValue.includes("deslocada")) {
       checkboxValue = checkboxValue.replace("ajustado", "alargado em relação");
@@ -848,7 +848,7 @@ function generateText() {
   });
 
   var estomagoText = "";
-  $("#Estômago input[type='checkbox']:checked").each(function() {
+  $("#estomago-sec input[type='checkbox']:checked").each(function() {
     estomagoText += $(this).val() + "<br><br>";
   });
 
@@ -865,25 +865,25 @@ function generateText() {
   if (estomagoText) text += "<strong style='bold'>Estômago: </strong>" + estomagoText;
 
   var duodenoText = "";
-  $("#Duodeno input[type='checkbox']:checked").each(function() {
+  $("#duodeno-sec input[type='checkbox']:checked").each(function() {
     duodenoText += $(this).val() + "<br><br>";
   });
   if (duodenoText) text += "<strong style='bold'>Duodeno: </strong>" + duodenoText;
 
   var jejunoText = "";
-  $("#Jejuno input[type='checkbox']:checked").each(function() {
+  $("#jejuno-sec input[type='checkbox']:checked").each(function() {
     jejunoText += $(this).val() + "<br><br>";
   });
   if (jejunoText) text += "<strong style='bold'>Jejuno: </strong>" + jejunoText;
 
   var outrosText = "";
-  $("#Outros input[type='checkbox']:checked").each(function() {
+  $("#outros-sec input[type='checkbox']:checked").each(function() {
     outrosText += $(this).val() + "<br><br>";
   });
   if (outrosText) text += outrosText;
 
   var conclusaoText = "";
-  $("#Conclusão input[type='checkbox']:checked").each(function() {
+  $("#conclusao-sec input[type='checkbox']:checked").each(function() {
     conclusaoText += $(this).val() + "<br>";
   });
 
@@ -894,7 +894,7 @@ function generateText() {
 
   if (conclusaoText) text += "<br><br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
 
-  if ($("#Outros input[type='checkbox']:checked").length > 0) {
+  if ($("#outros-sec input[type='checkbox']:checked").length > 0) {
     text = text.replace("<strong style='bold'>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>", "");
   }
 

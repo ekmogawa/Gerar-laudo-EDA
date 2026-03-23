@@ -884,7 +884,7 @@ function generateText() {
 
   var conclusaoText = "";
   $("#Conclusão input[type='checkbox']:checked").each(function() {
-    conclusaoText += $(this).val() + "<br>";
+    conclusaoText += "<br>" + $(this).val() + "<br>";
   });
 
   if ($("#checkboxmi").is(":checked") || $("input[name='MI']").is(":checked")) {

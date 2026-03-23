@@ -126,16 +126,96 @@ function inicializar() {
 }
 
 // ----------------------------------------------------------
-// DRAG & DROP
+// DRAG & DROP NATIVO
 // ----------------------------------------------------------
 
 function inicializarSortable() {
-  ['#sortable-equipamento','#sortable-sedacao','#sortable-esofago',
-   '#sortable-estomago','#sortable-duodeno','#sortable-jejuno',
-   '#sortable-conclusao','#sortable-outros']
-  .forEach(function (sel) {
-    $(sel).sortable({ cancel: '[data-sep="1"]' });
+  var zonas = [
+    'sortable-equipamento','sortable-sedacao','sortable-esofago',
+    'sortable-estomago','sortable-duodeno','sortable-jejuno',
+    'sortable-conclusao','sortable-outros'
+  ];
+  zonas.forEach(function (id) {
+    var zone = document.getElementById(id);
+    if (zone) ativarZona(zone);
   });
+}
+
+function ativarZona(zone) {
+  // Ativa itens já presentes e observa novos
+  zone.querySelectorAll('.item').forEach(ativarItem);
+  new MutationObserver(function (mutations) {
+    mutations.forEach(function (m) {
+      m.addedNodes.forEach(function (n) {
+        if (n.nodeType === 1 && n.classList.contains('item')) ativarItem(n);
+      });
+    });
+  }).observe(zone, { childList: true });
+
+  // dragover na zona (permite soltar)
+  zone.addEventListener('dragover', function (e) {
+    e.preventDefault();
+    var dragging = document.querySelector('.item.dragging');
+    if (!dragging) return;
+    var afterEl = getDragAfterElement(zone, e.clientX, e.clientY);
+    if (afterEl === dragging) return;
+    zone.querySelectorAll('.item.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+    if (afterEl) {
+      afterEl.classList.add('drag-over');
+      zone.insertBefore(dragging, afterEl);
+    } else {
+      zone.appendChild(dragging);
+    }
+  });
+
+  zone.addEventListener('dragleave', function (e) {
+    if (!zone.contains(e.relatedTarget)) {
+      zone.querySelectorAll('.item.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+    }
+  });
+
+  zone.addEventListener('drop', function (e) {
+    e.preventDefault();
+    zone.querySelectorAll('.item.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+  });
+}
+
+function ativarItem(item) {
+  if (item.getAttribute('data-sep') === '1') {
+    item.draggable = false;
+    return;
+  }
+  item.draggable = true;
+  item.addEventListener('dragstart', function (e) {
+    item.classList.add('dragging');
+    e.dataTransfer.effectAllowed = 'move';
+    e.dataTransfer.setData('text/plain', ''); // Firefox exige
+  });
+  item.addEventListener('dragend', function () {
+    item.classList.remove('dragging');
+    document.querySelectorAll('.item.drag-over').forEach(function (el) { el.classList.remove('drag-over'); });
+  });
+}
+
+function getDragAfterElement(zone, x, y) {
+  // Retorna o elemento imediatamente após a posição do cursor
+  var items = Array.from(zone.querySelectorAll('.item:not(.dragging)'));
+  var result = null;
+  var minDist = Infinity;
+  items.forEach(function (el) {
+    var rect = el.getBoundingClientRect();
+    var centerX = rect.left + rect.width  / 2;
+    var centerY = rect.top  + rect.height / 2;
+    // Usa centro vertical para layout em linha, horizontal para refinamento
+    var dy = y - centerY;
+    var dx = x - centerX;
+    // Elemento está "depois" do cursor se o centro está abaixo/direita
+    if (dy < 0 || (Math.abs(dy) < rect.height / 2 && dx < 0)) {
+      var dist = Math.sqrt(dx * dx + dy * dy);
+      if (dist < minDist) { minDist = dist; result = el; }
+    }
+  });
+  return result;
 }
 
 // ----------------------------------------------------------

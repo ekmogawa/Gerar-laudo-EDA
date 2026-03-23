@@ -65,18 +65,21 @@ function appendToSortable(elementId, div) {
 function popularCheckboxSection(containerId, itens) {
   var container = document.getElementById(containerId);
   if (!container) return;
-  container.innerHTML = ''; // limpa antes de popular — evita duplicação
+  // Remove apenas itens adicionados por esta função — preserva HTML estático (ex: widget de sedação)
+  container.querySelectorAll('.item[data-populated]').forEach(function (el) { el.remove(); });
   itens.forEach(function (item) {
     if (item.separador) {
       var sep = document.createElement('div');
       sep.className = 'item';
       sep.setAttribute('data-sep', '1');
+      sep.setAttribute('data-populated', '1');
       sep.style.cssText = 'width:100%;height:0;border-top:1px solid var(--border2);margin:3px 0;padding:0;background:transparent;border-radius:0;box-shadow:none;cursor:default;pointer-events:none;flex-basis:100%;';
       container.appendChild(sep);
       return;
     }
     var div = document.createElement('div');
-    div.className = 'item ui-sortable-handle';
+    div.className = 'item';
+    div.setAttribute('data-populated', '1');
     var idPadrao = item.nome + '-' + containerId;
     var id = item.id || idPadrao;
     var valorEscapado = (item.valor || '')
@@ -311,18 +314,21 @@ function inicializarSincronizacaoCheckboxes() {
   document.addEventListener('change', function (e) {
     if (e.target.type !== 'checkbox') return;
     var name = e.target.name, checked = e.target.checked;
-    // Sync by name
+
+    // "Normal" não sincroniza por nome — cada seção é independente.
+    // A cascata do Normal da Conclusão é tratada em inicializarConcNormal.
+    if (name === 'Normal') return;
+
+    // Sync by name — mantém checkboxes duplicados (ex: em popups) em sincronia
     document.querySelectorAll('input[type="checkbox"][name="' + name + '"]').forEach(function (cb) {
       if (cb !== e.target) cb.checked = checked;
     });
     // Lógica "+": HH+LAA etc. marca conclusão correspondente
     if (name.includes('+')) {
       var partes = name.split('+');
-      // Parte antes do +
       document.querySelectorAll('#Conclusão input[name="' + partes[0] + '"]').forEach(function (cb) {
         cb.checked = true;
       });
-      // Parte depois do +
       if (partes[1]) {
         document.querySelectorAll('#Conclusão input[name$="' + partes[1] + '"]').forEach(function (cb) {
           cb.checked = true;
@@ -333,19 +339,21 @@ function inicializarSincronizacaoCheckboxes() {
 }
 
 // ----------------------------------------------------------
-// CONCNORMAL → marca checkbox4, checkbox11, checkbox26
+// CONCNORMAL → ao marcar/desmarcar Normal na Conclusão,
+// marca/desmarca Normal de Esôfago (checkbox4), Estômago (checkbox11) e Duodeno (checkbox26)
 // ----------------------------------------------------------
 
 function inicializarConcNormal() {
   var concnormal = document.getElementById('concnormal');
   if (!concnormal) return;
   concnormal.addEventListener('change', function () {
-    if (concnormal.checked) {
-      ['checkbox4','checkbox11','checkbox26'].forEach(function (id) {
-        var cb = document.getElementById(id);
-        if (cb) cb.checked = true;
-      });
-    }
+    ['checkbox4', 'checkbox11', 'checkbox26'].forEach(function (id) {
+      var cb = document.getElementById(id);
+      if (cb) {
+        cb.checked = concnormal.checked;
+        cb.dispatchEvent(new Event('change', { bubbles: true }));
+      }
+    });
   });
 }
 

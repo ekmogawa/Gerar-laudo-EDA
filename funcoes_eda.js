@@ -173,8 +173,8 @@ function ativarItem(item) {
 
     function startDrag() {
       moved = true;
+      e.preventDefault(); // só previne o clique se for realmente um drag
 
-      // Placeholder — mesmas dimensões do item
       ph = document.createElement('div');
       ph.className = 'item';
       ph.setAttribute('data-ph', '1');
@@ -242,17 +242,11 @@ function ativarItem(item) {
         if (ghost) ghost.remove();
         item.style.display = '';
       } else {
-        // Foi um clique simples — togula o checkbox
-        var cb = item.querySelector('input[type=checkbox]');
-        if (cb) {
-          cb.checked = !cb.checked;
-          cb.dispatchEvent(new Event('change', { bubbles: true }));
-        }
+        // Clique simples — o evento natural de clique do browser trata o checkbox
       }
     }
 
-    // Previne o comportamento padrão do label (que já está tratado acima)
-    e.preventDefault();
+    // Não chama preventDefault aqui — deixa o clique natural funcionar
     item.addEventListener('pointermove',   onMove);
     item.addEventListener('pointerup',     onUp);
     item.addEventListener('pointercancel', onUp);

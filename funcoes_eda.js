@@ -977,7 +977,82 @@ async function copiarFormatado() {
   mostrarToast('🖨️ Copiado em Arial 11!');
 }
 
-// ----------------------------------------------------------
-// INICIALIZA
-// ----------------------------------------------------------
-// inicializar() é chamado diretamente pelo loader no index_eda.html
+// ============================================================
+// REVISÃO COM INTELIGÊNCIA ARTIFICIAL (Google Gemini - GRATUITO)
+// ============================================================
+
+async function revisarComIA() {
+  var output = document.getElementById('output');
+  
+  // Verifica se há texto gerado
+  if (!output || !output.innerText.trim()) {
+    mostrarToast('⚠️ Nenhum texto para revisar. Gere o laudo primeiro.', '#7a4000', 4000);
+    return;
+  }
+
+  // Pede a chave da API se não estiver salva na sessão
+  var apiKey = sessionStorage.getItem('gemini_api_key');
+  if (!apiKey) {
+    apiKey = prompt('🔑 Insira sua chave de API GRATUITA do Google Gemini (AIza...):\n\nA chave será salva apenas nesta sessão do navegador.');
+    if (!apiKey) return; // Usuário cancelou
+    sessionStorage.setItem('gemini_api_key', apiKey.trim());
+  }
+
+  var textoOriginal = output.innerHTML;
+  mostrarToast('🤖 Revisando com IA (Google Gemini)... Aguarde.', '#1a2e3a', 15000);
+
+  try {
+    // Chamada à API do Google Gemini (gemini-1.5-flash é super rápido e gratuito)
+    var url = 'https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-flash:generateContent?key=' + apiKey;
+    
+    var response = await fetch(url, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({
+        system_instruction: {
+          parts:[{ 
+            text: 'Você é um médico endoscopista experiente revisando um laudo de Endoscopia Digestiva Alta. Seu objetivo é corrigir eventuais erros gramaticais, melhorar a fluidez, remover redundâncias e garantir um tom médico profissional. IMPORTANTE: Mantenha estritamente as tags HTML de formatação presentes no texto (como <br>, <strong> e <span>). Não adicione informações clínicas inventadas que não estejam no texto original. Retorne APENAS o código HTML final revisado, sem nenhum texto extra.' 
+          }]
+        },
+        contents: [{
+          parts:[{ 
+            text: 'Revise o seguinte laudo mantendo o HTML original:\n\n' + textoOriginal 
+          }]
+        }],
+        generationConfig: {
+          temperature: 0.3
+        }
+      })
+    });
+
+    var data = await response.json();
+
+    if (!response.ok) {
+      if (response.status === 400 && data.error && data.error.message.includes("API key not valid")) {
+        sessionStorage.removeItem('gemini_api_key');
+        throw new Error('Chave de API inválida. Recarregue e tente novamente.');
+      }
+      throw new Error(data.error?.message || 'Erro HTTP ' + response.status);
+    }
+
+    var textoRevisado = data.candidates[0].content.parts[0].text;
+
+    // Limpa possíveis marcações de código markdown (```html) que a IA às vezes adiciona
+    textoRevisado = textoRevisado.replace(/^```html\n?/i, '').replace(/\n?```$/i, '');
+
+    // Atualiza a tela com o texto revisado
+    output.innerHTML = textoRevisado;
+    mostrarToast('✅ Revisão concluída!', '#1a3a1a');
+
+  } catch (error) {
+    console.error('[revisarComIA] Erro:', error);
+    mostrarToast('❌ Erro na revisão: ' + error.message, '#7a1a1a', 7000);
+    // Se deu erro de chave inválida, remove para poder pedir de novo na próxima vez
+    if (error.message.includes('API key')) {
+      sessionStorage.removeItem('gemini_api_key');
+    }
+  }
+}
+

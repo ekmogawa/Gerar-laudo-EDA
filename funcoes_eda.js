@@ -159,9 +159,7 @@ function ativarItem(item) {
     if (e.target.matches('input[type=checkbox], button, select')) return;
     if (e.button !== 0) return;
 
-    // Captura o pointer para receber eventos fora do elemento
-    item.setPointerCapture(e.pointerId);
-
+    // setPointerCapture removido — capturava eventos e impedia clique no checkbox
     var zone       = item.closest('.sortable-zone');
     var rect       = item.getBoundingClientRect();
     var offX       = e.clientX - rect.left;
@@ -242,7 +240,12 @@ function ativarItem(item) {
         if (ghost) ghost.remove();
         item.style.display = '';
       } else {
-        // Clique simples — o evento natural de clique do browser trata o checkbox
+        // Clique simples — togula o checkbox
+        var cb = item.querySelector('input[type=checkbox]');
+        if (cb) {
+          cb.checked = !cb.checked;
+          cb.dispatchEvent(new Event('change', { bubbles: true }));
+        }
       }
     }
 

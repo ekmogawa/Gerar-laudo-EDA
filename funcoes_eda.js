@@ -153,18 +153,27 @@ function ativarZona(zone) {
 
 function ativarItem(item) {
   if (item.getAttribute('data-sep') === '1') return;
+  if (item.getAttribute('data-drag-init')) return; // já inicializado — evita listeners duplos
+  item.setAttribute('data-drag-init', '1');
+
+  var wasDragged = false; // flag para suprimir click após drag
+
+  // Click handler — só togula se não foi drag
+  item.addEventListener('click', function (e) {
+    if (e.target.matches('input[type=checkbox], button, select')) return;
+    if (wasDragged) { wasDragged = false; return; }
+    var cb = item.querySelector('input[type=checkbox]');
+    if (cb) {
+      cb.checked = !cb.checked;
+      cb.dispatchEvent(new Event('change', { bubbles: true }));
+    }
+  });
 
   item.addEventListener('pointerdown', function (e) {
-    // Clique direto no checkbox — deixa o browser tratar normalmente
     if (e.target.matches('input[type=checkbox], button, select')) return;
     if (e.button !== 0) return;
 
-    // preventDefault aqui (síncrono) suprime o evento 'click' nativo que viria depois
-    // Isso permite que o toggle seja feito manualmente no onUp sem duplicação
-    e.preventDefault();
-
-    // setPointerCapture é essencial para o drag: garante que pointermove e pointerup
-    // continuem chegando mesmo quando o ponteiro sai do elemento
+    // setPointerCapture garante receber pointermove/pointerup fora do elemento
     item.setPointerCapture(e.pointerId);
 
     var zone       = item.closest('.sortable-zone');
@@ -178,6 +187,7 @@ function ativarItem(item) {
 
     function startDrag() {
       moved = true;
+      wasDragged = true;
 
       ph = document.createElement('div');
       ph.className = 'item';
@@ -232,20 +242,13 @@ function ativarItem(item) {
       item.removeEventListener('pointermove',   onMove);
       item.removeEventListener('pointerup',     onUp);
       item.removeEventListener('pointercancel', onUp);
-
       if (moved) {
         if (ph && ph.parentElement) ph.parentElement.insertBefore(item, ph);
         if (ph)    ph.remove();
         if (ghost) ghost.remove();
         item.style.display = '';
-      } else {
-        // Clique simples: toggle manual (click nativo foi suprimido pelo preventDefault)
-        var cb = item.querySelector('input[type=checkbox]');
-        if (cb) {
-          cb.checked = !cb.checked;
-          cb.dispatchEvent(new Event('change', { bubbles: true }));
-        }
       }
+      // se não moveu: o evento 'click' natural já vai cuidar do toggle
     }
 
     item.addEventListener('pointermove',   onMove);

@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 23/03/2026, 12:29:04
+// Salvo em: 24/03/2026, 13:06:45
 // ============================================================
 
 var DB_PADRAO = {
@@ -622,6 +622,10 @@ var DB_PADRAO = {
     {
       "nome": "Lesões pós",
       "valor": "ORIENTAÇÕES PÓS-TERAPÊUTICA ENDOSCÓPICA EM AMBULATÓRIO DE LESÕES:\n\n* Aguardar contato da Sra. Marina (AMB de lesões) e equipe médica da endoscopia para teleconsulta com informações sobre resultados da biópsias, necessidade de complementação terapêutica e programação de controle colonoscópico. NÃO É NECESSÁRIO AGENDAMENTO DE CONSULTA COM ESPECIALISTA ANTES DO NOSSO CONTATO.\n\nPara dúvidas, telefone corporativo Ambulatório de Lesões (Marina e Juliana): (11) 95324-4041\n\nOrientações:\n1. Dieta líquida ou pastosa com temperatura morna ou fria por 7 dias;\n2. Não realizar atividade física por 15 dias;\n3. Evitar exposição ao sol por períodos prolongados;\n4. Em caso de vômitos com sangue e coágulos, evacuação preta, tipo borra de café, com odor fétido ou dor abdominal intensa, procurar atendimento de urgência via Pronto Socorro do Hospital Madrid e/ou entrar em contato com Dr. Eduardo Ogawa (11 97632-1588)."
+    },
+    {
+      "nome": "Panto; vonau; busco",
+      "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>Vonau 4mg<br><br>Tomar um comprimido de 6 em 6 horas, se tiver násea.<br><br><br>Buscopan composto comprimido (10 mg/250 mg)<br><br>Tomar um comprimido de 4 em 4 horas, se tiver cólica."
     }
   ]
 };

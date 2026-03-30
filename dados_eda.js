@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 30/03/2026, 13:08:36
+// Salvo em: 30/03/2026, 13:32:59
 // ============================================================
 
 var DB_PADRAO = {
@@ -608,7 +608,7 @@ var DB_PADRAO = {
       "valor": "Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
     },
     {
-      "nome": "AP GCA",
+      "nome": "AP GCA1",
       "valor": "1- bx de antro - pesquisa de H. pylori e atrofia\n2- bx de copro gástrico - pesquisa de H. pylori e atrofia\n\n\nAos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
     },
     {

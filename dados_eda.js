@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 30/03/2026, 13:05:38
+// Salvo em: 30/03/2026, 13:08:36
 // ============================================================
 
 var DB_PADRAO = {
@@ -557,14 +557,6 @@ var DB_PADRAO = {
     {
       "nome": "Pinça",
       "valor": "<br>Material especial: pinça de biópsia."
-    },
-    {
-      "nome": "Marília",
-      "valor": "<br>Obs: realizado por Dra. Marília Seber e acompanhado por Dr. Eduardo Ogawa."
-    },
-    {
-      "nome": "Letícia",
-      "valor": "<br>Obs: realizado por Dra. Letícia Volpe e acompanhado por Dr. Eduardo Ogawa."
     },
     {
       "nome": "Valéria",

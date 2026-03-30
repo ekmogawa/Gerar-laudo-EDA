@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 30/03/2026, 13:32:59
+// Salvo em: 30/03/2026, 13:35:34
 // ============================================================
 
 var DB_PADRAO = {
@@ -583,8 +583,8 @@ var DB_PADRAO = {
       "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>"
     },
     {
-      "nome": "Fiber mais",
-      "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>1. Fiber Mais<br><br>Misturar uma medida a um copo de água ou suco e tomar uma vez ao dia por 15 dias.<br><br><br>2- Buscopan composto gotas<br><br>Tomar 20 gotas de 6 em 6 horas, se tiver cólicas abdominais.<br><br><br>3- Proctyl pomada<br><br>Passar na região anal de 8 em 8 horas, se tiver desconforto anal."
+      "nome": "Panto; vonau; busco",
+      "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>Vonau 4mg<br><br>Tomar um comprimido de 6 em 6 horas, se tiver násea.<br><br><br>Buscopan composto comprimido (10 mg/250 mg)<br><br>Tomar um comprimido de 4 em 4 horas, se tiver cólica."
     },
     {
       "nome": "Cipro",
@@ -604,20 +604,8 @@ var DB_PADRAO = {
       "valor": "<strong style='bold'>ORIENTAÇÕES PÓS-LIGADURA ELÁSTICA DE VARIZES ESOFÁGICAS</strong><br><br><br><br>Não ingerir alimentos quentes por três (3) dias; somente frios ou temperatura ambiente.<br><br>Somente ingerir alimentos líquidos por três (3) dias. Após, iniciar ingesta de alimentos pastosos aumentando progressivamente a consistência e acrescentando sólidos amassados e depois picados. Retornar a dieta normal após sete (7) dias do exame.<br><br>Não ingerir alimentos duros como talos ou pães de casca grossa por dez (10) dias.<br><br>Não realizar esforços físicos moderados a intensos por sete (7) dias. Pode realizar caminhada leve.<br><br>Não ingerir bebidas alcoólicas.<br><br>Utilizar medicações conforme a receita em anexo.<br><br>Em caso de dor torácica, febre ou sangramento (vômitos com sangue vivo e/ou coágulos ou fezes escurecidas, amolecidas e com cheiro forte) comparecer imediatamente a Pronto Atendimento (PA)."
     },
     {
-      "nome": "AP lesões",
-      "valor": "Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
-    },
-    {
-      "nome": "AP GCA1",
-      "valor": "1- bx de antro - pesquisa de H. pylori e atrofia\n2- bx de copro gástrico - pesquisa de H. pylori e atrofia\n\n\nAos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
-    },
-    {
       "nome": "Lesões pós",
       "valor": "ORIENTAÇÕES PÓS-TERAPÊUTICA ENDOSCÓPICA EM AMBULATÓRIO DE LESÕES:\n\n* Aguardar contato da Sra. Marina (AMB de lesões) e equipe médica da endoscopia para teleconsulta com informações sobre resultados da biópsias, necessidade de complementação terapêutica e programação de controle colonoscópico. NÃO É NECESSÁRIO AGENDAMENTO DE CONSULTA COM ESPECIALISTA ANTES DO NOSSO CONTATO.\n\nPara dúvidas, telefone corporativo Ambulatório de Lesões (Marina e Juliana): (11) 95324-4041\n\nOrientações:\n1. Dieta líquida ou pastosa com temperatura morna ou fria por 7 dias;\n2. Não realizar atividade física por 15 dias;\n3. Evitar exposição ao sol por períodos prolongados;\n4. Em caso de vômitos com sangue e coágulos, evacuação preta, tipo borra de café, com odor fétido ou dor abdominal intensa, procurar atendimento de urgência via Pronto Socorro do Hospital Madrid e/ou entrar em contato com Dr. Eduardo Ogawa (11 97632-1588)."
-    },
-    {
-      "nome": "Panto; vonau; busco",
-      "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>Vonau 4mg<br><br>Tomar um comprimido de 6 em 6 horas, se tiver násea.<br><br><br>Buscopan composto comprimido (10 mg/250 mg)<br><br>Tomar um comprimido de 4 em 4 horas, se tiver cólica."
     },
     {
       "nome": "AP HP",
@@ -625,7 +613,11 @@ var DB_PADRAO = {
     },
     {
       "nome": "AP GCA",
-      "valor": "1- bx de antro - pesquisa de H. pylori e atrofia<br>2- bx de corpo gástrico - pesquisa de H. pylori e atrofia"
+      "valor": "1- bx de antro - pesquisa de H. pylori e atrofia\n2- bx de corpo gástrico - pesquisa de H. pylori e atrofia"
+    },
+    {
+      "nome": "AP lesões",
+      "valor": "Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
     }
   ]
 };

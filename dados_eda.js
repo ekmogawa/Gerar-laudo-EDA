@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 30/03/2026, 13:35:34
+// Salvo em: 31/03/2026, 13:06:12
 // ============================================================
 
 var DB_PADRAO = {
@@ -584,7 +584,7 @@ var DB_PADRAO = {
     },
     {
       "nome": "Panto; vonau; busco",
-      "valor": "<strong style='bold'>Receituário Médico</strong><br><br><br><br>Pantoprazol 20mg<br><br>Tomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.<br><br><br>Vonau 4mg<br><br>Tomar um comprimido de 6 em 6 horas, se tiver násea.<br><br><br>Buscopan composto comprimido (10 mg/250 mg)<br><br>Tomar um comprimido de 4 em 4 horas, se tiver cólica."
+      "valor": "Receituário Médico\n\n\nPantoprazol 20mg\n\nTomar um comprimido 20 minutos antes do café da manhã e do jantar por 14 dias.\n\n\nVonau 4mg\n\nTomar um comprimido de 6 em 6 horas, se tiver násea.\n\n\nBuscopan composto comprimido (10 mg/250 mg)\n\nTomar um comprimido de 4 em 4 horas, se tiver cólica."
     },
     {
       "nome": "Cipro",

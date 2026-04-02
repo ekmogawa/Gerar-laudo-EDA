@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 31/03/2026, 13:06:12
+// Salvo em: 02/04/2026, 14:08:23
 // ============================================================
 
 var DB_PADRAO = {
@@ -98,8 +98,8 @@ var DB_PADRAO = {
       "valor": "calibre e distensibilidade preservados. Ausência de lesões de mucosa. A transição esofagogástrica está deslocada cerca de 2cm acima do pinçamento diafragmático."
     },
     {
-      "nome": "HH+LAA",
-      "id": "checkbox10",
+      "nome": "HHD+LAA",
+      "id": "HHD+LAAcheckbox10",
       "valor": "calibre e distensibilidade preservados. Presença de erosões menores que 5mm ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático."
     },
     {

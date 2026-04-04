@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 02/04/2026, 14:08:23
+// Salvo em: 04/04/2026, 00:53:22
 // ============================================================
 
 var DB_PADRAO = {
@@ -103,11 +103,11 @@ var DB_PADRAO = {
       "valor": "calibre e distensibilidade preservados. Presença de erosões menores que 5mm ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático."
     },
     {
-      "nome": "HH+LAB",
+      "nome": "HHD+LAB",
       "valor": "calibre e distensibilidade preservados. Presença de erosões lineares não confluentes mairoes que 5mm ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático."
     },
     {
-      "nome": "HH+LAC",
+      "nome": "HHD+LAC",
       "valor": "calibre e distensibilidade preservados. Presença de erosões que confluem ocupando cerca de 40% da circunferência ao nível da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático."
     },
     {
@@ -121,7 +121,7 @@ var DB_PADRAO = {
       "valor": "calibre e distensibilidade preservados. Presença de digitação de mucosa de aspecto colunar medindo cerca de 10mm; realizada avaliação com cromoscopia digital e biópsia. A transição esofagogástrica coincide com o pinçamento diafragmático."
     },
     {
-      "nome": "HH+Barrett",
+      "nome": "HHD+Barrett",
       "valor": "calibre e distensibilidade preservados. Presença de digitações de mucosa com aspecto colunar medindo até cerca de 10mm a partir da transição esofagogástrica, que está deslocada cerca de 2cm acima do pinçamento diafragmático. Realizada cromoscopia com ácido acético, não sendo identificadas áreas suspeitas para displasia. Biópsias."
     },
     {

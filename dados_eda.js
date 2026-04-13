@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 13/04/2026, 08:53:47
+// Salvo em: 13/04/2026, 14:20:44
 // ============================================================
 
 var DB_PADRAO = {
@@ -622,6 +622,10 @@ var DB_PADRAO = {
     {
       "nome": "AP lesões",
       "valor": "Aos cuidados de Dr. Denilson Mayrink ou Dra. Juliana Micelli."
+    },
+    {
+      "nome": "AP GCA+duod+seriada",
+      "valor": "1- bx de antro - pesquisa de H. pylori e atrofia<br>2- bx de corpo gástrico - pesquisa de H. pylori e atrofia<br>3- bx de bulbo e seugnda porção duodenal<br>4- bx de íleo<br>5- bx de cólon direito<br>6- bx de cólon esquerdo<br>7- bx de reto"
     }
   ]
 };

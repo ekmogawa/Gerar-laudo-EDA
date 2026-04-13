@@ -1,6 +1,6 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 04/04/2026, 00:53:22
+// Salvo em: 13/04/2026, 08:53:47
 // ============================================================
 
 var DB_PADRAO = {
@@ -549,6 +549,10 @@ var DB_PADRAO = {
     {
       "nome": "Obs ATB",
       "valor": "<br>Obs: o uso de antibióticos nos 30 dias que antecedem a endoscopia digestiva alta causa redução significante da sensibilidade dos testes de detecção de H. pylori."
+    },
+    {
+      "nome": "Edema retrocric",
+      "valor": "\nObservação: presença de edema de mucosa retrocricoide, que pode estar relacionado a DRGE."
     },
     {
       "nome": "Alça",

@@ -7,13 +7,20 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
 
-  <!-- ① Configuração GitHub -->
+  <!-- Firebase SDK (compat) -->
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
+  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
+  <!-- Nota: o console mostra SDK 12.x (módulos ES), mas usamos a versão compat 10.x que é
+       compatível com o mesmo projeto Firebase. Não é necessário atualizar. -->
+
+  <!-- Configurações (Firebase + GitHub backup) -->
+  <script src="firebase-config.js"></script>
   <script src="config.js"></script>
-  <script>
-    if (typeof GITHUB_CONFIG !== 'undefined') GITHUB_CONFIG.path = 'dados_eda.js';
 
+  <!-- Loader: dados_eda.js → funcoes_eda.js → inicializarFirebase() -->
+  <script>
     (function () {
       var t = Date.now();
       function loadScript(src, onload) {
@@ -38,7 +45,7 @@
       }
       loadScript('dados_eda.js', function () {
         loadScript('funcoes_eda.js', function () {
-          domReady(inicializar);
+          domReady(inicializarFirebase);
         });
       });
     })();
@@ -348,23 +355,106 @@
     [data-ph="1"] { pointer-events: none; }
     .sortable-zone { cursor: grab; }
     .sortable-zone:active { cursor: grabbing; }
+
+    /* ── USER STATUS (header) ── */
+    .header-right { display:flex; align-items:center; gap:10px; }
+    #save-indicator { font-family:'DM Mono',monospace; font-size:11px; color:rgba(255,255,255,.45); transition:opacity .3s; }
+    #user-status { display:flex; align-items:center; gap:7px; }
+    .user-email { font-family:'DM Mono',monospace; font-size:11px; color:rgba(255,255,255,.88); background:rgba(255,255,255,.1); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.18); }
+    .btn-xs { font-size:11.5px !important; padding:3px 9px !important; }
+    .btn-autosave-on { box-shadow:0 0 0 2px rgba(255,255,255,.25) !important; }
+
+    /* ── AUTH OVERLAY ── */
+    #auth-overlay {
+      display:none; position:fixed; inset:0;
+      background:var(--bg); z-index:99999;
+      align-items:center; justify-content:center;
+    }
+    #auth-overlay.show { display:flex; }
+    #auth-box {
+      background:var(--panel); border:1px solid var(--border);
+      border-radius:12px; padding:32px 36px;
+      width:min(92vw,380px); box-shadow:var(--shadow-m); text-align:center;
+    }
+    .auth-logo { font-size:34px; margin-bottom:6px; }
+    #auth-box h2 { font-size:16px; font-weight:600; color:var(--primary); margin-bottom:20px; }
+    .auth-tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:18px; }
+    .auth-tab {
+      flex:1; background:transparent; border:none;
+      border-bottom:2px solid transparent; margin-bottom:-2px;
+      padding:7px; font-family:'DM Sans',sans-serif; font-size:13.5px;
+      font-weight:500; color:var(--ink3); cursor:pointer;
+      transition:color var(--t),border-color var(--t);
+    }
+    .auth-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
+    #auth-box input[type=email],
+    #auth-box input[type=password] {
+      display:block; width:100%; font-family:'DM Sans',sans-serif;
+      font-size:14px; padding:9px 12px;
+      border:1px solid var(--border2); border-radius:6px;
+      background:var(--row-alt); color:var(--ink); margin-bottom:10px;
+      transition:border-color var(--t);
+    }
+    #auth-box input:focus { outline:none; border-color:var(--accent); }
+    .btn-full { width:100%; justify-content:center; padding:9px !important; margin-top:2px; }
+    .btn-link {
+      background:none; border:none; color:var(--ink3);
+      font-size:12.5px; cursor:pointer; margin-top:10px;
+      padding:0; font-family:'DM Sans',sans-serif;
+      text-decoration:underline; text-underline-offset:2px;
+    }
+    .btn-link:hover { color:var(--accent); }
+    #auth-erro { color:var(--danger); font-size:13px; margin-top:10px; min-height:18px; text-align:left; }
   </style>
 </head>
 <body>
 
+<!-- AUTH MODAL -->
+<div id="auth-overlay">
+  <div id="auth-box">
+    <div class="auth-logo">📑</div>
+    <h2>Gerador de Laudo EDA</h2>
+    <div class="auth-tabs">
+      <button class="auth-tab active" id="tab-entrar"    onclick="mostrarTabAuth('entrar')">Entrar</button>
+      <button class="auth-tab"        id="tab-cadastrar" onclick="mostrarTabAuth('cadastrar')">Cadastrar</button>
+    </div>
+
+    <div id="form-entrar">
+      <input type="email"    id="auth-email"    placeholder="E-mail"  autocomplete="email">
+      <input type="password" id="auth-password" placeholder="Senha"   autocomplete="current-password">
+      <button class="btn-primary btn-full" id="btn-login" onclick="loginUsuario()">Entrar</button>
+      <button class="btn-link" onclick="resetarSenha()">Esqueci a senha</button>
+    </div>
+
+    <div id="form-cadastrar" style="display:none">
+      <input type="email"    id="cad-email"     placeholder="E-mail">
+      <input type="password" id="cad-password"  placeholder="Senha (mín. 6 caracteres)">
+      <input type="password" id="cad-password2" placeholder="Confirmar senha">
+      <button class="btn-primary btn-full" id="btn-cadastrar" onclick="registrarUsuario()">Cadastrar</button>
+    </div>
+
+    <p id="auth-erro"></p>
+  </div>
+</div>
+
 <header class="app-header">
   <h1>📑 Endoscopia Digestiva Alta <em>Gerador de Laudo</em></h1>
-  <span id="github-status"></span>
+  <div class="header-right">
+    <span id="save-indicator"></span>
+    <div id="user-status"></div>
+  </div>
 </header>
 
 <div class="toolbar">
-  <button class="btn-save" onclick="salvarDados()">💾 Salvar no GitHub</button>
-  <button class="btn-ghost" onclick="testarToken()">🔍 Testar Token</button>
+  <button class="btn-save"  onclick="salvarDados()">💾 Salvar</button>
+  <button class="btn-ghost" id="btn-autosave" onclick="toggleAutoSave()">🔄 Auto-save: OFF</button>
   <div class="tsep"></div>
   <button class="btn-ghost" onclick="uncheckAll()">✕ Limpar</button>
   <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
   <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
   <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
+  <div class="tsep"></div>
+  <button class="btn-muted" onclick="salvarBackupGitHub()" title="Exportar dados_eda.js para o GitHub como backup">☁ Backup</button>
 </div>
 
 <div id="toast"></div>
@@ -511,27 +601,6 @@
 
 <footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>
 
-<script>
-function fecharTodosPopups() {
-  document.getElementById('popup').style.display        = 'none';
-  document.getElementById('create-popup').style.display = 'none';
-  document.getElementById('backdrop').classList.remove('show');
-  document.getElementById('checkbox-list').innerHTML    = '';
-}
-// showPopup, showCreatePopup, hidePopup, hideCreatePopup são definidos
-// em funcoes_eda.js após o carregamento assíncrono.
-// O backdrop é controlado diretamente naquelas funções.
-{
-  window.hidePopup = function () {
-    document.getElementById('popup').style.display = 'none';
-    document.getElementById('checkbox-list').innerHTML = '';
-    document.getElementById('backdrop').classList.remove('show');
-  };
-  window.hideCreatePopup = function () {
-    document.getElementById('create-popup').style.display = 'none';
-    document.getElementById('backdrop').classList.remove('show');
-  };
-}
-</script>
+<!-- fecharTodosPopups, hidePopup, hideCreatePopup definidos em funcoes_eda.js -->
 </body>
 </html>

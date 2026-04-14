@@ -1,37 +1,116 @@
 // ============================================================
-// FUNÇÕES — Gerar Laudo EDA
-// Depende de: config.js e dados_eda.js (carregados antes)
+// FUNÇÕES — Gerar Laudo EDA (Firebase Edition)
+// Depende de: firebase-config.js + dados_eda.js (carregados antes)
 // ============================================================
 
 // ----------------------------------------------------------
-// BANCO ATIVO — _DB para não colidir com dados_eda.js
+// FIREBASE — instâncias globais
 // ----------------------------------------------------------
-var _DB;
-(function () {
-  var fonte = (typeof DB_PADRAO !== 'undefined') ? DB_PADRAO
-            : (typeof DB       !== 'undefined') ? DB
-            : null;
-  if (!fonte) {
-    document.addEventListener('DOMContentLoaded', function () {
-      document.body.innerHTML =
-        '<div style="font:16px Arial;padding:40px;color:#900">' +
-        '&#10060; Erro: <b>dados_eda.js</b> n&#227;o carregou.<br><br>' +
-        'Certifique-se de que o reposit&#243;rio cont&#233;m os 4 arquivos:<br>' +
-        '<code>index_eda.html &nbsp; config.js &nbsp; dados_eda.js &nbsp; funcoes_eda.js</code>' +
-        '</div>';
-    });
+
+var _auth      = null;   // firebase.auth()
+var _firestore = null;   // firebase.firestore()
+var _user      = null;   // usuário autenticado atual
+
+function inicializarFirebase() {
+  if (typeof FIREBASE_CONFIG === 'undefined' ||
+      FIREBASE_CONFIG.apiKey === 'COLE_SUA_API_KEY_AQUI') {
+    document.body.innerHTML =
+      '<div style="font:16px Arial;padding:48px;color:#900;max-width:560px;margin:auto">' +
+      '<h2 style="margin-bottom:12px">&#9888; Firebase não configurado</h2>' +
+      '<p>Edite <b>firebase-config.js</b> com as credenciais do seu projeto Firebase.</p>' +
+      '<p style="margin-top:8px;color:#666;font-size:14px">Veja as instruções dentro do próprio arquivo.</p></div>';
     return;
   }
-  _DB = JSON.parse(JSON.stringify(fonte));
-}());
+
+  try {
+    firebase.initializeApp(FIREBASE_CONFIG);
+    _auth      = firebase.auth();
+    _firestore = firebase.firestore();
+
+    _firestore.enablePersistence({ synchronizeTabs: true }).catch(function (err) {
+      if (err.code !== 'failed-precondition' && err.code !== 'unimplemented')
+        console.warn('[Firestore] Persistência offline:', err.code);
+    });
+
+    // Atalho Enter nos campos de auth
+    ['auth-password', 'cad-password2'].forEach(function (id) {
+      var el = document.getElementById(id);
+      if (el) el.addEventListener('keydown', function (e) {
+        if (e.key !== 'Enter') return;
+        id === 'auth-password' ? loginUsuario() : registrarUsuario();
+      });
+    });
+
+    _auth.onAuthStateChanged(function (user) {
+      _user = user;
+      if (user) {
+        ocultarModalAuth();
+        atualizarStatusUsuario();
+        carregarDados();
+      } else {
+        mostrarModalAuth();
+        atualizarStatusUsuario();
+        _limparDOM();
+      }
+    });
+
+  } catch (e) {
+    console.error('[Firebase] Erro na inicialização:', e);
+    mostrarToast('&#10060; Erro ao conectar ao Firebase: ' + e.message, '#7a1a1a', 10000);
+  }
+}
+
+// ----------------------------------------------------------
+// BANCO ATIVO
+// ----------------------------------------------------------
+
+var _DB = null;
+
+// ----------------------------------------------------------
+// AUTO-SAVE
+// ----------------------------------------------------------
+
+var _autoSaveAtivo = localStorage.getItem('eda_autosave') === '1';
+var _autoSaveTimer = null;
+var _temAlteracoes = false;
+
+function agendarAutoSave() {
+  _temAlteracoes = true;
+  atualizarIndicadorSalvo();
+  if (!_autoSaveAtivo) return;
+  clearTimeout(_autoSaveTimer);
+  _autoSaveTimer = setTimeout(salvarDados, 1500);
+}
+
+function toggleAutoSave() {
+  _autoSaveAtivo = !_autoSaveAtivo;
+  localStorage.setItem('eda_autosave', _autoSaveAtivo ? '1' : '0');
+  atualizarBotaoAutoSave();
+  if (_autoSaveAtivo && _temAlteracoes) salvarDados();
+}
+
+function atualizarBotaoAutoSave() {
+  var btn = document.getElementById('btn-autosave');
+  if (!btn) return;
+  if (_autoSaveAtivo) {
+    btn.textContent = '&#128260; Auto-save: ON';
+    btn.className   = 'btn-save btn-autosave-on';
+  } else {
+    btn.textContent = '&#128260; Auto-save: OFF';
+    btn.className   = 'btn-ghost';
+  }
+}
+
+function atualizarIndicadorSalvo() {
+  var el = document.getElementById('save-indicator');
+  if (!el) return;
+  el.textContent = _temAlteracoes ? '&#9679; Não salvo' : '&#10003; Salvo';
+  el.style.opacity = _temAlteracoes ? '0.75' : '0.4';
+}
 
 // ----------------------------------------------------------
 // UTILITÁRIOS
 // ----------------------------------------------------------
-
-function getSelectedOptionValue(selectElement) {
-  return selectElement.value;
-}
 
 function mostrarToast(msg, cor, duracao) {
   var t = document.getElementById('toast');
@@ -47,10 +126,12 @@ var _contadorDinamico = 0;
 
 function createCheckboxDiv(text, name) {
   var div = document.createElement('div');
-  div.className = 'item item-dinamico ui-sortable-handle';
+  div.className = 'item item-dinamico';
   div.style.display = 'block';
   var nomeUnico = name + '_d' + (++_contadorDinamico);
-  div.innerHTML = '<input type="checkbox" name="' + nomeUnico + '" value="' + text + '" checked><label>' + text + '</label>';
+  div.innerHTML =
+    '<input type="checkbox" name="' + nomeUnico + '" value="' + text + '" checked>' +
+    '<label>' + text + '</label>';
   return div;
 }
 
@@ -65,15 +146,17 @@ function appendToSortable(elementId, div) {
 function popularCheckboxSection(containerId, itens) {
   var container = document.getElementById(containerId);
   if (!container) return;
-  // Remove apenas itens adicionados por esta função — preserva HTML estático (ex: widget de sedação)
   container.querySelectorAll('.item[data-populated]').forEach(function (el) { el.remove(); });
-  itens.forEach(function (item) {
+  (itens || []).forEach(function (item) {
     if (item.separador) {
       var sep = document.createElement('div');
       sep.className = 'item';
       sep.setAttribute('data-sep', '1');
       sep.setAttribute('data-populated', '1');
-      sep.style.cssText = 'width:100%;height:0;border-top:1px solid var(--border2);margin:3px 0;padding:0;background:transparent;border-radius:0;box-shadow:none;cursor:default;pointer-events:none;flex-basis:100%;';
+      sep.style.cssText =
+        'width:100%;height:0;border-top:1px solid var(--border2);margin:3px 0;' +
+        'padding:0;background:transparent;border-radius:0;box-shadow:none;' +
+        'cursor:default;pointer-events:none;flex-basis:100%;';
       container.appendChild(sep);
       return;
     }
@@ -82,10 +165,12 @@ function popularCheckboxSection(containerId, itens) {
     div.setAttribute('data-populated', '1');
     var idPadrao = item.nome + '-' + containerId;
     var id = item.id || idPadrao;
-    var valorEscapado = (item.valor || '')
-      .replace(/&/g, '&amp;').replace(/"/g, '&quot;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+    var valorEsc = (item.valor || '')
+      .replace(/&/g, '&amp;').replace(/"/g, '&quot;')
+      .replace(/</g, '&lt;').replace(/>/g, '&gt;');
     div.innerHTML =
-      '<input type="checkbox" name="' + item.nome + '" value="' + valorEscapado + '" id="' + id + '">' +
+      '<input type="checkbox" name="' + item.nome +
+      '" value="' + valorEsc + '" id="' + id + '">' +
       '<label for="' + id + '">' + item.nome + '</label>';
     container.appendChild(div);
   });
@@ -95,23 +180,22 @@ function popularSelect(id, opcoes) {
   var sel = document.getElementById(id);
   if (!sel) return;
   sel.innerHTML = '';
-  opcoes.forEach(function (op) {
+  (opcoes || []).forEach(function (op) {
     var opt = document.createElement('option');
     if (typeof op === 'string') {
-      opt.value = op;
-      opt.textContent = op || '-';
+      opt.value = op; opt.textContent = op || '-';
     } else {
-      opt.value = op.valor !== undefined ? op.valor : op;
+      opt.value       = op.valor !== undefined ? op.valor : op;
       opt.textContent = op.label !== undefined ? op.label : op;
     }
     sel.appendChild(opt);
   });
 }
 
-function inicializar() {
-  if (!_DB) return;
-  if (window._inicializado) return; // guard — impede execução dupla
+function inicializar(dados) {
+  if (!dados) return;
   window._inicializado = true;
+  _DB = JSON.parse(JSON.stringify(dados));
 
   popularCheckboxSection('sortable-equipamento', _DB.equipamento);
   popularCheckboxSection('sortable-sedacao',     _DB.sedacao);
@@ -122,13 +206,29 @@ function inicializar() {
   popularCheckboxSection('sortable-conclusao',   _DB.conclusao);
   popularCheckboxSection('sortable-outros',      _DB.outros);
 
-  popularSelect('fentanil',  _DB.sedacaoSelects.fentanil);
-  popularSelect('midazolam', _DB.sedacaoSelects.midazolam);
+  var ss = _DB.sedacaoSelects || {};
+  popularSelect('fentanil',  ss.fentanil);
+  popularSelect('midazolam', ss.midazolam);
 
   inicializarSortable();
   inicializarSincronizacaoCheckboxes();
   inicializarConcNormal();
-  atualizarStatusGitHub();
+
+  _temAlteracoes = false;
+  atualizarIndicadorSalvo();
+  atualizarBotaoAutoSave();
+}
+
+function _limparDOM() {
+  window._inicializado = false;
+  ['sortable-equipamento','sortable-sedacao','sortable-esofago',
+   'sortable-estomago','sortable-duodeno','sortable-jejuno',
+   'sortable-conclusao','sortable-outros'].forEach(function (id) {
+    var el = document.getElementById(id);
+    if (el) el.querySelectorAll('.item[data-populated]').forEach(function (i) { i.remove(); });
+  });
+  var out = document.getElementById('output');
+  if (out) out.innerHTML = '';
 }
 
 // ----------------------------------------------------------
@@ -136,11 +236,9 @@ function inicializar() {
 // ----------------------------------------------------------
 
 function inicializarSortable() {
-  [
-    'sortable-equipamento','sortable-sedacao','sortable-esofago',
-    'sortable-estomago','sortable-duodeno','sortable-jejuno',
-    'sortable-conclusao','sortable-outros'
-  ].forEach(function (id) {
+  ['sortable-equipamento','sortable-sedacao','sortable-esofago',
+   'sortable-estomago','sortable-duodeno','sortable-jejuno',
+   'sortable-conclusao','sortable-outros'].forEach(function (id) {
     var zone = document.getElementById(id);
     if (zone) ativarZona(zone);
   });
@@ -159,12 +257,11 @@ function ativarZona(zone) {
 
 function ativarItem(item) {
   if (item.getAttribute('data-sep') === '1') return;
-  if (item.getAttribute('data-drag-init')) return; // já inicializado — evita listeners duplos
+  if (item.getAttribute('data-drag-init')) return;
   item.setAttribute('data-drag-init', '1');
 
-  var wasDragged = false; // flag para suprimir click após drag
+  var wasDragged = false;
 
-  // Click handler — só togula se não foi drag
   item.addEventListener('click', function (e) {
     if (e.target.matches('input[type=checkbox], button, select')) return;
     if (wasDragged) { wasDragged = false; return; }
@@ -179,7 +276,6 @@ function ativarItem(item) {
     if (e.target.matches('input[type=checkbox], button, select')) return;
     if (e.button !== 0) return;
 
-    // setPointerCapture garante receber pointermove/pointerup fora do elemento
     item.setPointerCapture(e.pointerId);
 
     var zone       = item.closest('.sortable-zone');
@@ -192,15 +288,12 @@ function ativarItem(item) {
     var lastTarget = undefined;
 
     function startDrag() {
-      moved = true;
-      wasDragged = true;
-
+      moved = true; wasDragged = true;
       ph = document.createElement('div');
       ph.className = 'item';
       ph.setAttribute('data-ph', '1');
       ph.style.cssText =
-        'width:'  + rect.width  + 'px;' +
-        'height:' + rect.height + 'px;' +
+        'width:' + rect.width + 'px;height:' + rect.height + 'px;' +
         'border:2px dashed var(--accent);background:var(--accent-l);' +
         'border-radius:6px;pointer-events:none;flex-shrink:0;';
       zone.insertBefore(ph, item);
@@ -208,12 +301,10 @@ function ativarItem(item) {
 
       ghost = item.cloneNode(true);
       ghost.style.cssText =
-        'position:fixed;z-index:9999;pointer-events:none;' +
-        'width:'  + rect.width + 'px;' +
+        'position:fixed;z-index:9999;pointer-events:none;width:' + rect.width + 'px;' +
         'opacity:.88;box-shadow:0 8px 24px rgba(0,0,0,.22);' +
         'transform:rotate(1.5deg) scale(1.03);' +
-        'left:' + (e.clientX - offX) + 'px;' +
-        'top:'  + (e.clientY - offY) + 'px;';
+        'left:' + (e.clientX - offX) + 'px;top:' + (e.clientY - offY) + 'px;';
       document.body.appendChild(ghost);
     }
 
@@ -221,7 +312,7 @@ function ativarItem(item) {
       var dx = ev.clientX - (rect.left + offX);
       var dy = ev.clientY - (rect.top  + offY);
       if (!moved) {
-        if (Math.sqrt(dx*dx + dy*dy) < 5) return;
+        if (Math.sqrt(dx * dx + dy * dy) < 5) return;
         startDrag();
       }
       ghost.style.left = (ev.clientX - offX) + 'px';
@@ -233,10 +324,7 @@ function ativarItem(item) {
       var targetZone = elUnder ? elUnder.closest('.sortable-zone') : null;
       if (!targetZone) targetZone = zone;
 
-      if (ph.parentElement !== targetZone) {
-        targetZone.appendChild(ph);
-        lastTarget = undefined;
-      }
+      if (ph.parentElement !== targetZone) { targetZone.appendChild(ph); lastTarget = undefined; }
       var after = getAfterElement(targetZone, ev.clientX, ev.clientY, ph);
       var key   = after || null;
       if (key === lastTarget) return;
@@ -253,8 +341,8 @@ function ativarItem(item) {
         if (ph)    ph.remove();
         if (ghost) ghost.remove();
         item.style.display = '';
+        agendarAutoSave();
       }
-      // se não moveu: o evento 'click' natural já vai cuidar do toggle
     }
 
     item.addEventListener('pointermove',   onMove);
@@ -264,14 +352,10 @@ function ativarItem(item) {
 }
 
 function getAfterElement(zone, x, y, exclude) {
-  var items = Array.from(zone.querySelectorAll('.item'))
-    .filter(function (el) {
-      return el !== exclude &&
-             !el.getAttribute('data-ph') &&
-             el.getAttribute('data-sep') !== '1';
-    });
+  var items = Array.from(zone.querySelectorAll('.item')).filter(function (el) {
+    return el !== exclude && !el.getAttribute('data-ph') && el.getAttribute('data-sep') !== '1';
+  });
 
-  // Agrupa por linha
   var rows = [];
   items.forEach(function (el) {
     var r    = el.getBoundingClientRect();
@@ -282,22 +366,16 @@ function getAfterElement(zone, x, y, exclude) {
     row.els.push({ el: el, midX: r.left + r.width / 2 });
   });
   rows.sort(function (a, b) { return a.y - b.y; });
-
   if (!rows.length) return null;
 
-  // Linha do cursor
   var targetRow = rows[rows.length - 1];
   for (var i = 0; i < rows.length; i++) {
     if (y <= rows[i].bottom) { targetRow = rows[i]; break; }
   }
-
-  // Primeiro item à direita do cursor nessa linha
   var sorted = targetRow.els.slice().sort(function (a, b) { return a.midX - b.midX; });
   for (var j = 0; j < sorted.length; j++) {
     if (x < sorted[j].midX) return sorted[j].el;
   }
-
-  // À direita de tudo — próxima linha
   var ri = rows.indexOf(targetRow);
   if (ri < rows.length - 1) {
     var next = rows[ri + 1].els.slice().sort(function (a, b) { return a.midX - b.midX; });
@@ -307,23 +385,19 @@ function getAfterElement(zone, x, y, exclude) {
 }
 
 // ----------------------------------------------------------
-// SINCRONIZAÇÃO DE CHECKBOXES (por nome)
+// SINCRONIZAÇÃO DE CHECKBOXES
 // ----------------------------------------------------------
 
 function inicializarSincronizacaoCheckboxes() {
   document.addEventListener('change', function (e) {
     if (e.target.type !== 'checkbox') return;
     var name = e.target.name, checked = e.target.checked;
-
-    // "Normal" não sincroniza por nome — cada seção é independente.
-    // A cascata do Normal da Conclusão é tratada em inicializarConcNormal.
     if (name === 'Normal') return;
 
-    // Sync by name — mantém checkboxes duplicados (ex: em popups) em sincronia
     document.querySelectorAll('input[type="checkbox"][name="' + name + '"]').forEach(function (cb) {
       if (cb !== e.target) cb.checked = checked;
     });
-    // Lógica "+": HH+LAA etc. marca conclusão correspondente
+
     if (name.includes('+')) {
       var partes = name.split('+');
       document.querySelectorAll('#Conclusão input[name="' + partes[0] + '"]').forEach(function (cb) {
@@ -338,21 +412,13 @@ function inicializarSincronizacaoCheckboxes() {
   });
 }
 
-// ----------------------------------------------------------
-// CONCNORMAL → ao marcar/desmarcar Normal na Conclusão,
-// marca/desmarca Normal de Esôfago (checkbox4), Estômago (checkbox11) e Duodeno (checkbox26)
-// ----------------------------------------------------------
-
 function inicializarConcNormal() {
   var concnormal = document.getElementById('concnormal');
   if (!concnormal) return;
   concnormal.addEventListener('change', function () {
     ['checkbox4', 'checkbox11', 'checkbox26'].forEach(function (id) {
       var cb = document.getElementById(id);
-      if (cb) {
-        cb.checked = concnormal.checked;
-        cb.dispatchEvent(new Event('change', { bubbles: true }));
-      }
+      if (cb) { cb.checked = concnormal.checked; cb.dispatchEvent(new Event('change', { bubbles: true })); }
     });
   });
 }
@@ -362,63 +428,84 @@ function inicializarConcNormal() {
 // ----------------------------------------------------------
 
 function addParametersedacao() {
-  var fentanil  = getSelectedOptionValue(document.getElementById('fentanil'));
-  var midazolam = getSelectedOptionValue(document.getElementById('midazolam'));
-  var texto = 'Fentanil ' + fentanil + midazolam + ' + Propofol titulado IV.<br>Suplementação de O2 por catéter nasal a 3 L/min.<br>Monitorização de oximetria de pulso e PNI.';
+  var fentanil  = document.getElementById('fentanil').value;
+  var midazolam = document.getElementById('midazolam').value;
+  var texto =
+    'Fentanil ' + fentanil + midazolam + ' + Propofol titulado IV.<br>' +
+    'Suplementação de O2 por catéter nasal a 3 L/min.<br>' +
+    'Monitorização de oximetria de pulso e PNI.';
   appendToSortable('sortable-sedacao', createCheckboxDiv(texto, 'sedacao'));
 }
 
 // ----------------------------------------------------------
-// EDITAR / CRIAR / EXCLUIR ITENS
+// EDITAR / CRIAR / EXCLUIR
 // ----------------------------------------------------------
+
+function fecharTodosPopups() {
+  document.getElementById('popup').style.display        = 'none';
+  document.getElementById('create-popup').style.display = 'none';
+  document.getElementById('backdrop').classList.remove('show');
+  document.getElementById('checkbox-list').innerHTML    = '';
+}
+
+function abrirPopup(id) {
+  document.getElementById(id).style.display = 'block';
+  document.getElementById('backdrop').classList.add('show');
+}
 
 function showPopup() {
   var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
   var container  = document.getElementById('checkbox-list');
   container.innerHTML = '';
+
   if (checkboxes.length === 0) {
-    container.innerHTML = '<p>Nenhum item selecionado para editar.</p>';
-    document.getElementById('popup').style.display = 'block';
-    document.getElementById('backdrop').classList.add('show');
+    container.innerHTML = '<p style="color:var(--ink3);padding:8px 0">Nenhum item selecionado.</p>';
+    abrirPopup('popup');
     return;
   }
+
   checkboxes.forEach(function (cb) {
     var label     = document.querySelector('label[for="' + cb.id + '"]');
     var labelText = label ? label.innerText : '';
     var suffix    = cb.id.replace(cb.name, '');
-    var itemDiv   = document.createElement('div');
-    itemDiv.className = 'edit-group';
-    itemDiv.style.cssText = 'border-bottom:1px solid #ccc;padding:10px 0;';
-    itemDiv.innerHTML =
-      '<div><strong>Nome do Item:</strong><br>' +
-      '<input type="text" style="width:300px;margin-bottom:10px;"' +
-      ' oninput="updateEverything(\'' + cb.id + '\',this.value,\'' + suffix + '\',this)"' +
-      ' value="' + labelText + '"></div>' +
-      '<div><strong>Texto da entrada:</strong><br>' +
-      '<textarea class="edit-value-input" style="height:60px;width:90%;"' +
-      ' oninput="updateOnlyValue(\'' + cb.id + '\',this.value)">' + cb.value + '</textarea></div>';
-    container.appendChild(itemDiv);
+
+    var group = document.createElement('div');
+    group.className = 'edit-group';
+
+    // Campo nome
+    var nomeLabel = document.createElement('strong');
+    nomeLabel.textContent = 'Nome do Item:';
+    var nomeInput = document.createElement('input');
+    nomeInput.type = 'text';
+    nomeInput.style.cssText = 'display:block;width:300px;margin:4px 0 10px;';
+    nomeInput.value = labelText;
+    nomeInput.dataset.targetId = cb.id;
+    nomeInput.dataset.suffix   = suffix;
+
+    // Campo valor
+    var valorLabel = document.createElement('strong');
+    valorLabel.textContent = 'Texto da entrada:';
+    var valorTa = document.createElement('textarea');
+    valorTa.className = 'edit-value-input';
+    valorTa.style.cssText = 'display:block;height:60px;width:90%;margin-top:4px;';
+    valorTa.value = cb.value;
+    valorTa.dataset.targetId = cb.id;
+
+    nomeInput.addEventListener('input', function () {
+      updateEverything(this.dataset.targetId, this.value, this.dataset.suffix, this, valorTa);
+    });
+    valorTa.addEventListener('input', function () {
+      updateOnlyValue(this.dataset.targetId, this.value);
+    });
+
+    group.appendChild(nomeLabel);
+    group.appendChild(nomeInput);
+    group.appendChild(valorLabel);
+    group.appendChild(valorTa);
+    container.appendChild(group);
   });
-  document.getElementById('popup').style.display = 'block';
-  document.getElementById('backdrop').classList.add('show');
-}
 
-function updateEverything(currentId, newName, suffix, inputEl) {
-  var checkbox = document.getElementById(currentId);
-  var label    = document.querySelector('label[for="' + currentId + '"]');
-  var newId    = newName + suffix;
-  if (checkbox && label) {
-    checkbox.id = newId; checkbox.name = newName;
-    label.setAttribute('for', newId); label.innerText = newName;
-    inputEl.setAttribute('oninput', 'updateEverything(\'' + newId + '\',this.value,\'' + suffix + '\',this)');
-    inputEl.closest('div').parentElement.querySelector('.edit-value-input')
-      .setAttribute('oninput', 'updateOnlyValue(\'' + newId + '\',this.value)');
-  }
-}
-
-function updateOnlyValue(id, newValue) {
-  var cb = document.getElementById(id);
-  if (cb) cb.value = newValue;
+  abrirPopup('popup');
 }
 
 function hidePopup() {
@@ -427,41 +514,72 @@ function hidePopup() {
   document.getElementById('backdrop').classList.remove('show');
 }
 
-function deleteCheckedCheckboxes() {
-  var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
-  if (checkboxes.length > 0 && confirm('Deseja excluir os itens selecionados?')) {
-    checkboxes.forEach(function (cb) { (cb.closest('.item') || cb.parentElement).remove(); });
-    hidePopup();
+function updateEverything(currentId, newName, suffix, nomeInput, valorTa) {
+  var checkbox = document.getElementById(currentId);
+  var label    = document.querySelector('label[for="' + currentId + '"]');
+  if (checkbox && label) {
+    var newId = newName + suffix;
+    checkbox.id   = newId;
+    checkbox.name = newName;
+    label.setAttribute('for', newId);
+    label.innerText = newName;
+    if (nomeInput) nomeInput.dataset.targetId = newId;
+    if (valorTa)   valorTa.dataset.targetId   = newId;
   }
+  agendarAutoSave();
 }
 
-function showCreatePopup() {
-  document.getElementById('create-popup').style.display = 'block';
-  document.getElementById('backdrop').classList.add('show');
+function updateOnlyValue(id, newValue) {
+  var cb = document.getElementById(id);
+  if (cb) cb.value = newValue;
+  agendarAutoSave();
 }
+
+function deleteCheckedCheckboxes() {
+  var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
+  if (checkboxes.length === 0) return;
+  if (!confirm('Deseja excluir os ' + checkboxes.length + ' item(ns) selecionado(s)?')) return;
+  checkboxes.forEach(function (cb) { (cb.closest('.item') || cb.parentElement).remove(); });
+  hidePopup();
+  agendarAutoSave();
+}
+
+function showCreatePopup() { abrirPopup('create-popup'); }
+
 function hideCreatePopup() {
   document.getElementById('create-popup').style.display = 'none';
   document.getElementById('backdrop').classList.remove('show');
 }
 
 function createCheckbox() {
-  var nome      = document.getElementById('checkbox-name').value;
+  var nome      = document.getElementById('checkbox-name').value.trim();
   var valor     = document.getElementById('checkbox-value').value.replace(/\n/g, '<br>');
   var sectionId = document.getElementById('section-select').value;
-  var section   = document.getElementById(sectionId);
+
+  if (!nome) { mostrarToast('&#9888; Digite um nome para o item.', '#7a4000'); return; }
+
+  var section = document.getElementById(sectionId);
   var div = document.createElement('div');
   div.className = 'item';
+  div.setAttribute('data-populated', '1');
+
   var cb = document.createElement('input');
-  cb.type = 'checkbox'; cb.name = nome; cb.value = valor; cb.id = nome + '-' + sectionId;
+  cb.type = 'checkbox'; cb.name = nome; cb.value = valor;
+  cb.id   = nome + '-' + sectionId;
+
   var lbl = document.createElement('label');
-  lbl.htmlFor = cb.id; lbl.setAttribute('contenteditable', 'true'); lbl.innerHTML = nome;
+  lbl.htmlFor = cb.id; lbl.textContent = nome;
+
   div.appendChild(cb); div.appendChild(lbl);
-  section.appendChild(document.createTextNode('\n'));
   section.appendChild(div);
+
   document.getElementById('create-popup').style.display = 'none';
+  document.getElementById('backdrop').classList.remove('show');
   document.getElementById('checkbox-name').value  = '';
   document.getElementById('checkbox-value').value = '';
-  mostrarToast('✅ Item criado! Clique em "Salvar no GitHub" para persistir.');
+
+  agendarAutoSave();
+  mostrarToast(_autoSaveAtivo ? '&#10003; Item criado! Salvando\u2026' : '&#10003; Item criado!');
 }
 
 function uncheckAll() {
@@ -469,22 +587,17 @@ function uncheckAll() {
 }
 
 // ----------------------------------------------------------
-// SERIALIZAR DOM → objeto JS
+// SERIALIZAÇÃO DOM → objeto
 // ----------------------------------------------------------
 
-var IDS_CONTROLE_EDA = new Set([
-  'sedacao-sortable'
-]);
+var IDS_CONTROLE_EDA = new Set(['sedacao-sortable']);
 
 function serializarSecao(containerId) {
   var container = document.getElementById(containerId);
   if (!container) return [];
   var itens = [];
   container.querySelectorAll(':scope > .item').forEach(function (div) {
-    if (div.getAttribute('data-sep') === '1') {
-      itens.push({ separador: true });
-      return;
-    }
+    if (div.getAttribute('data-sep') === '1') { itens.push({ separador: true }); return; }
     var cb = div.querySelector('input[type="checkbox"]');
     if (!cb || IDS_CONTROLE_EDA.has(cb.id) || IDS_CONTROLE_EDA.has(cb.name)) return;
     if (div.getAttribute('data-ph')) return;
@@ -494,18 +607,20 @@ function serializarSecao(containerId) {
     var item = { nome: nome };
     var idPadrao = nome + '-' + containerId;
     if (cb.id && cb.id !== idPadrao) item.id = cb.id;
-    item.valor = cb.value; // cb.value já contém o HTML correto — não usar innerHTML de textarea (converte <br> em \n)
+    item.valor = cb.value;
     itens.push(item);
   });
   return itens;
 }
 
 function montarConteudoJS(dbObj) {
-  return '// ============================================================\n' +
+  return (
+    '// ============================================================\n' +
     '// BANCO DE DADOS \u2014 Gerar Laudo EDA\n' +
     '// Salvo em: ' + new Date().toLocaleString('pt-BR') + '\n' +
     '// ============================================================\n\n' +
-    'var DB_PADRAO = ' + JSON.stringify(dbObj, null, 2) + ';\n';
+    'var DB_PADRAO = ' + JSON.stringify(dbObj, null, 2) + ';\n'
+  );
 }
 
 function coletarDB() {
@@ -525,218 +640,72 @@ function coletarDB() {
 }
 
 // ----------------------------------------------------------
-// CONFIGURAÇÃO DO GITHUB
+// FIRESTORE — CARREGAR / SALVAR
 // ----------------------------------------------------------
 
-function lerConfigGitHub() {
-  if (typeof GITHUB_CONFIG !== 'undefined') return GITHUB_CONFIG;
-  return {};
-}
-
-function githubConfigurado() {
-  var c = lerConfigGitHub();
-  if (c.tokenCriptografado) return !!sessionStorage.getItem('colono_github_token');
-  return !!(c.token && c.owner && c.repo);
-}
-
-function atualizarStatusGitHub() {
-  var el = document.getElementById('github-status');
-  if (!el) return;
-  var c = lerConfigGitHub();
-  if (!c.owner) {
-    el.textContent = '⚠️ config.js não configurado';
-    el.style.color = 'rgba(255,255,255,.55)';
-    return;
-  }
-  if (c.tokenCriptografado) {
-    if (sessionStorage.getItem('colono_github_token')) {
-      el.textContent = '✅ GitHub: ' + c.owner + '/' + c.repo + ' (🔓 ativo)';
-      el.style.color = 'rgba(255,255,255,.88)';
+async function carregarDados() {
+  if (!_user || !_firestore) return;
+  mostrarToast('&#8987; Carregando\u2026', '#1a2e3a', 8000);
+  try {
+    var doc = await _firestore.collection('users').doc(_user.uid).get();
+    var dados;
+    if (doc.exists && doc.data().db) {
+      dados = doc.data().db;
     } else {
-      el.textContent = '🔒 GitHub: ' + c.owner + '/' + c.repo + ' (sessão inativa — recarregue)';
-      el.style.color = 'rgba(255,255,255,.62)';
+      // Primeiro acesso — inicializa com o template padrão
+      dados = (typeof DB_PADRAO !== 'undefined') ? DB_PADRAO : {};
+      await _firestore.collection('users').doc(_user.uid).set({
+        db:       dados,
+        email:    _user.email,
+        criadoEm: firebase.firestore.FieldValue.serverTimestamp()
+      });
     }
-  } else if (c.token) {
-    el.textContent = '✅ GitHub: ' + c.owner + '/' + c.repo;
-    el.style.color = 'rgba(255,255,255,.88)';
-  } else {
-    el.textContent = '⚠️ Token não configurado';
-    el.style.color = 'rgba(255,255,255,.55)';
-  }
-}
-
-function pedirSenha(msg) {
-  return new Promise(function (resolve) {
-    var overlay = document.getElementById('senha-overlay');
-    var msgEl   = document.getElementById('senha-msg');
-    var input   = document.getElementById('senha-input');
-    var btnOk   = document.getElementById('senha-ok');
-    var btnCanc = document.getElementById('senha-cancelar');
-    msgEl.textContent = msg;
-    input.value = '';
-    overlay.classList.add('show');
-    input.focus();
-    function fechar(v) {
-      overlay.classList.remove('show');
-      btnOk.removeEventListener('click', onOk);
-      btnCanc.removeEventListener('click', onCanc);
-      input.removeEventListener('keydown', onKey);
-      resolve(v);
-    }
-    function onOk()   { fechar(input.value); }
-    function onCanc() { fechar(null); }
-    function onKey(e) { if (e.key === 'Enter') fechar(input.value); if (e.key === 'Escape') fechar(null); }
-    btnOk.addEventListener('click', onOk);
-    btnCanc.addEventListener('click', onCanc);
-    input.addEventListener('keydown', onKey);
-  });
-}
-
-async function descriptografarToken(senha) {
-  try {
-    if (!window.crypto || !window.crypto.subtle) {
-      console.error('[descriptografarToken] crypto.subtle indisponível. A página precisa ser servida via HTTPS ou localhost.');
-      return null;
-    }
-    var c       = lerConfigGitHub();
-    var fromB64 = function (b64) { return Uint8Array.from(atob(b64), function (ch) { return ch.charCodeAt(0); }); };
-    var salt    = fromB64(c.salt);
-    var iv      = fromB64(c.iv);
-    var cifrado = fromB64(c.tokenCriptografado);
-    console.log('[descriptografarToken] salt bytes:', salt.length, '| iv bytes:', iv.length, '| cifrado bytes:', cifrado.length);
-    var keyMat  = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
-    var key     = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: salt, iterations: 200000, hash: 'SHA-256' },
-      keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    var dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: iv }, key, cifrado);
-    var token = new TextDecoder().decode(dec);
-    console.log('[descriptografarToken] Token decriptografado com sucesso. Tamanho:', token.length, 'chars. Prefixo:', token.substring(0, 6) + '...');
-    return token;
+    inicializar(dados);
+    mostrarToast('&#10003; Dados carregados.', '#1a3a1a', 2000);
   } catch (e) {
-    console.error('[descriptografarToken] Falha:', e.name, e.message);
-    return null;
+    console.error('[carregarDados]', e);
+    mostrarToast('&#10060; Erro ao carregar: ' + e.message, '#7a1a1a', 10000);
   }
 }
-
-async function inicializarTokenGitHub() {
-  var c = lerConfigGitHub();
-  if (!c.tokenCriptografado) { atualizarStatusGitHub(); return; }
-  if (sessionStorage.getItem('colono_github_token')) { atualizarStatusGitHub(); return; }
-  var tentativas = 0;
-  while (tentativas < 3) {
-    var msg   = tentativas === 0 ? '🔐 Digite a senha para ativar o GitHub:'
-                                 : '❌ Senha incorreta. Tentativa ' + (tentativas + 1) + '/3:';
-    var senha = await pedirSenha(msg);
-    if (senha === null) break;
-    var token = await descriptografarToken(senha);
-    if (token) {
-      sessionStorage.setItem('colono_github_token', token);
-      mostrarToast('🔓 GitHub ativado para esta sessão!', '#1a3a1a');
-      atualizarStatusGitHub(); return;
-    }
-    tentativas++;
-  }
-  if (tentativas >= 3) mostrarToast('⚠️ Senha incorreta 3×. GitHub inativo nesta sessão.', '#7a1a1a');
-  atualizarStatusGitHub();
-}
-
-// ----------------------------------------------------------
-// TESTAR TOKEN
-// ----------------------------------------------------------
-
-async function testarToken() {
-  var c     = lerConfigGitHub();
-  var token = sessionStorage.getItem('colono_github_token') || c.token;
-
-  if (c.tokenCriptografado && !sessionStorage.getItem('colono_github_token')) {
-    await inicializarTokenGitHub();
-    if (!sessionStorage.getItem('colono_github_token')) return;
-    token = sessionStorage.getItem('colono_github_token');
-  }
-
-  if (!token) {
-    mostrarToast('⚠️ Nenhum token encontrado na sessão.', '#7a4000', 6000);
-    return;
-  }
-
-  mostrarToast('🔍 Testando acesso…', '#1a2e3a', 15000);
-  var hdrs = { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' };
-
-  try {
-    // 1. Testa autenticação básica (quem sou eu?)
-    var userResp = await fetch('https://api.github.com/user', { headers: hdrs });
-    var userData = await userResp.json();
-    console.log('[testarToken] /user status:', userResp.status, '| login:', userData.login);
-    if (!userResp.ok) {
-      mostrarToast('❌ Token inválido: ' + (userData.message || userResp.status), '#7a1a1a', 8000);
-      return;
-    }
-
-    // 2. Testa acesso ao repositório
-    var repoResp = await fetch('https://api.github.com/repos/' + c.owner + '/' + c.repo, { headers: hdrs });
-    var repoData = await repoResp.json();
-    console.log('[testarToken] /repos status:', repoResp.status, '| permissions:', repoData.permissions);
-    if (!repoResp.ok) {
-      mostrarToast('❌ Repositório não encontrado ou sem acesso (HTTP ' + repoResp.status + ')', '#7a1a1a', 8000);
-      return;
-    }
-
-    // 3. Testa acesso à Contents API (isso é separado do acesso ao repo!)
-    var path       = c.path || 'dados_eda.js';
-    var branch     = c.branch || 'main';
-    var contResp   = await fetch(
-      'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + path + '?ref=' + branch,
-      { headers: hdrs }
-    );
-    // Loga os headers de permissão retornados pelo GitHub
-    var permHeader = contResp.headers.get('x-accepted-github-permissions') || 'não retornado';
-    console.log('[testarToken] Contents status:', contResp.status, '| x-accepted-github-permissions:', permHeader);
-
-    var contentsOk  = contResp.ok;                       // 200 = arquivo existe e token lê
-    var contentsNew = contResp.status === 404;            // pode ser sem permissão OU arquivo não existe
-    var contentsErr = !contentsOk && !contentsNew;
-
-    // 4. Monta diagnóstico
-    var lines = [
-      '👤 Login: ' + userData.login,
-      '📦 Repo: ' + (repoData.permissions ? 'push=' + (repoData.permissions.push ? 'sim' : 'NÃO') : 'ok'),
-      '📄 Contents API: ' + (contentsOk ? '✅ leitura OK' : contentsNew ? '⚠️ 404 (sem permissão de Contents OU arquivo não existe)' : '❌ erro ' + contResp.status),
-    ];
-    console.log('[testarToken] Diagnóstico:', lines.join(' | '));
-    mostrarToast(lines.join('\n'), contentsOk ? '#1a3a1a' : '#7a4000', 12000);
-
-    if (contentsNew) {
-      console.warn('[testarToken] 404 na Contents API pode significar:',
-        '\n  1. Token fine-grained sem permissão "Contents: Read and write" → gere novo token',
-        '\n  2. Arquivo ' + path + ' ainda não existe no branch ' + branch + ' → normal se for primeira vez');
-    }
-  } catch(e) {
-    mostrarToast('❌ Erro no teste: ' + e.message, '#7a1a1a', 8000);
-    console.error('[testarToken]', e);
-  }
-}
-
-// ----------------------------------------------------------
-// SALVAR NO GITHUB
-// ----------------------------------------------------------
 
 async function salvarDados() {
-  var c     = lerConfigGitHub();
+  if (!_user || !_firestore) {
+    mostrarToast('&#9888; Faça login para salvar.', '#7a4000', 5000);
+    return;
+  }
+  clearTimeout(_autoSaveTimer);
+  mostrarToast('&#128260; Salvando\u2026', '#1a2e3a', 6000);
+  try {
+    var db = coletarDB();
+    await _firestore.collection('users').doc(_user.uid).set(
+      { db: db, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() },
+      { merge: true }
+    );
+    Object.assign(_DB, db);
+    _temAlteracoes = false;
+    atualizarIndicadorSalvo();
+    mostrarToast('&#10003; Salvo!', '#1a3a1a', 2500);
+  } catch (e) {
+    console.error('[salvarDados]', e);
+    mostrarToast('&#10060; Erro ao salvar: ' + e.message, '#7a1a1a', 10000);
+  }
+}
+
+// ----------------------------------------------------------
+// BACKUP GITHUB (legado — mantido para exportação)
+// ----------------------------------------------------------
+
+async function salvarBackupGitHub() {
+  var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
   var token = sessionStorage.getItem('colono_github_token') || c.token;
 
   if (c.tokenCriptografado && !sessionStorage.getItem('colono_github_token')) {
-    await inicializarTokenGitHub();
+    await _inicializarTokenGitHub();
     if (!sessionStorage.getItem('colono_github_token')) return;
     token = sessionStorage.getItem('colono_github_token');
   }
-
-  if (!c.owner || !c.repo) {
-    mostrarToast('⚠️ config.js sem owner/repo. Verifique o arquivo.', '#7a4000', 6000);
-    console.error('[salvarDados] GITHUB_CONFIG:', c);
-    return;
-  }
-  if (!token) {
-    mostrarToast('⚠️ Token ausente. Verifique config.js ou refaça a autenticação.', '#7a4000', 6000);
+  if (!c.owner || !c.repo || !token) {
+    mostrarToast('&#9888; config.js não configurado para backup GitHub.', '#7a4000', 6000);
     return;
   }
 
@@ -749,179 +718,275 @@ async function salvarDados() {
     'Content-Type':  'application/json'
   };
 
-  console.log('[salvarDados] Iniciando. URL:', apiBase, '| branch:', branch);
-  console.log('[salvarDados] Token prefix:', token ? token.substring(0, 15) + '...' : 'VAZIO');
-  mostrarToast('🔄 Enviando para o GitHub…', '#1a2e3a', 10000);
-
+  mostrarToast('&#128260; Enviando backup para GitHub\u2026', '#1a2e3a', 10000);
   try {
-    // 1. Verifica escopos do token (clássico: precisa de 'repo' ou 'public_repo')
-    var scopeResp = await fetch('https://api.github.com/user', {
-      headers: { 'Authorization': 'token ' + token, 'Accept': 'application/vnd.github+json' }
-    });
-    var scopes = scopeResp.headers.get('x-oauth-scopes') || 'não retornado (token fine-grained)';
-    console.log('[salvarDados] Token scopes:', scopes);
-
-    // 1. Busca SHA atual
-    console.log('[salvarDados] GET', apiBase + '?ref=' + branch);
     var getResp = await fetch(apiBase + '?ref=' + encodeURIComponent(branch), { headers: headers });
-    console.log('[salvarDados] GET status:', getResp.status);
-
-    if (!getResp.ok && getResp.status !== 404) {
-      var errGet = await getResp.json().catch(function () { return {}; });
-      throw new Error('Erro ao ler arquivo: ' + (errGet.message || 'HTTP ' + getResp.status));
-    }
-
-    var getSha = undefined;
+    if (!getResp.ok && getResp.status !== 404) throw new Error('Erro ao ler arquivo: HTTP ' + getResp.status);
+    var getSha;
     if (getResp.ok) {
       var getData = await getResp.json().catch(function () { return {}; });
       getSha = getData.sha;
-      console.log('[salvarDados] SHA:', getSha ? getSha.substring(0, 8) + '…' : 'nenhum');
-    } else {
-      console.log('[salvarDados] Arquivo não existe ainda — será criado.');
     }
-
-    // 2. Serializa o banco de dados
-    console.log('[salvarDados] Serializando DB…');
-    var dbAtualizado = coletarDB();
-    console.log('[salvarDados] DB serializado. Seções:', Object.keys(dbAtualizado).join(', '));
-
-    // 3. Monta e envia
-    var conteudo    = montarConteudoJS(dbAtualizado);
-    var conteudoB64 = btoa(unescape(encodeURIComponent(conteudo)));
-    var body = {
-      message: 'Atualização via interface EDA — ' + new Date().toLocaleString('pt-BR'),
-      content: conteudoB64,
-      branch:  branch
-    };
+    var dbAtual   = coletarDB();
+    var conteudo  = montarConteudoJS(dbAtual);
+    var b64       = btoa(unescape(encodeURIComponent(conteudo)));
+    var body = { message: 'Backup via EDA \u2014 ' + new Date().toLocaleString('pt-BR'), content: b64, branch: branch };
     if (getSha) body.sha = getSha;
 
-    console.log('[salvarDados] PUT sha:', getSha ? getSha.substring(0, 8) : 'novo', '| branch:', branch, '| b64 length:', conteudoB64.length);
     var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
-    console.log('[salvarDados] PUT status:', putResp.status);
-
     if (!putResp.ok) {
       var errPut = await putResp.json().catch(function () { return {}; });
-      console.error('[salvarDados] PUT erro body:', JSON.stringify(errPut));
-      console.error('[salvarDados] x-accepted-github-permissions:', putResp.headers.get('x-accepted-github-permissions'));
-      var msg = errPut.message || ('HTTP ' + putResp.status);
-      if (putResp.status === 401) msg = 'Token inválido ou expirado (401). Gere um novo token.';
-      if (putResp.status === 403) msg = 'Sem permissão de escrita (403). Token precisa de Contents: Read and write.';
-      if (putResp.status === 404) msg = '404 no PUT — token sem permissão de Contents ou repositório não encontrado. Veja console.';
-      if (putResp.status === 409) msg = 'Conflito de versão (409). Recarregue a página e tente novamente.';
-      if (putResp.status === 422) msg = 'SHA inválido (422). Recarregue a página e tente novamente.';
+      var msg = errPut.message || 'HTTP ' + putResp.status;
+      if (putResp.status === 401) msg = 'Token inválido (401).';
+      if (putResp.status === 403) msg = 'Sem permissão de escrita (403).';
+      if (putResp.status === 409) msg = 'Conflito (409). Recarregue e tente novamente.';
       throw new Error(msg);
     }
-
-    Object.assign(_DB, dbAtualizado);
-    mostrarToast('✅ dados_eda.js salvo no GitHub!', '#1a3a1a', 4000);
-    console.log('[salvarDados] Sucesso!');
+    mostrarToast('&#10003; Backup salvo no GitHub!', '#1a3a1a', 4000);
   } catch (e) {
-    mostrarToast('❌ ' + e.message, '#7a1a1a', 8000);
-    console.error('[salvarDados] Erro completo:', e);
+    mostrarToast('&#10060; ' + e.message, '#7a1a1a', 8000);
+    console.error('[salvarBackupGitHub]', e);
+  }
+}
+
+async function _inicializarTokenGitHub() {
+  var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
+  if (!c.tokenCriptografado) return;
+  if (sessionStorage.getItem('colono_github_token')) return;
+  var tentativas = 0;
+  while (tentativas < 3) {
+    var msg   = tentativas === 0 ? '&#128272; Senha para backup GitHub:' : '&#10060; Senha incorreta. Tentativa ' + (tentativas + 1) + '/3:';
+    var senha = await _pedirSenhaGitHub(msg);
+    if (senha === null) break;
+    var token = await _descriptografarToken(senha);
+    if (token) { sessionStorage.setItem('colono_github_token', token); return; }
+    tentativas++;
+  }
+}
+
+function _pedirSenhaGitHub(msg) {
+  return new Promise(function (resolve) {
+    var overlay = document.getElementById('senha-overlay');
+    var msgEl   = document.getElementById('senha-msg');
+    var input   = document.getElementById('senha-input');
+    var btnOk   = document.getElementById('senha-ok');
+    var btnCanc = document.getElementById('senha-cancelar');
+    msgEl.textContent = msg; input.value = ''; overlay.classList.add('show'); input.focus();
+    function fechar(v) {
+      overlay.classList.remove('show');
+      btnOk.removeEventListener('click', onOk); btnCanc.removeEventListener('click', onCanc);
+      input.removeEventListener('keydown', onKey); resolve(v);
+    }
+    function onOk()   { fechar(input.value); }
+    function onCanc() { fechar(null); }
+    function onKey(e) { if (e.key === 'Enter') fechar(input.value); if (e.key === 'Escape') fechar(null); }
+    btnOk.addEventListener('click', onOk); btnCanc.addEventListener('click', onCanc);
+    input.addEventListener('keydown', onKey);
+  });
+}
+
+async function _descriptografarToken(senha) {
+  try {
+    var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
+    var fromB64 = function (b64) { return Uint8Array.from(atob(b64), function (ch) { return ch.charCodeAt(0); }); };
+    var keyMat  = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
+    var key     = await crypto.subtle.deriveKey(
+      { name: 'PBKDF2', salt: fromB64(c.salt), iterations: 200000, hash: 'SHA-256' },
+      keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
+    var dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(c.iv) }, key, fromB64(c.tokenCriptografado));
+    return new TextDecoder().decode(dec);
+  } catch (e) { return null; }
+}
+
+// ----------------------------------------------------------
+// AUTH — UI
+// ----------------------------------------------------------
+
+function mostrarModalAuth() {
+  var overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.classList.add('show');
+}
+
+function ocultarModalAuth() {
+  var overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+function mostrarTabAuth(tab) {
+  document.getElementById('form-entrar').style.display    = tab === 'entrar'    ? '' : 'none';
+  document.getElementById('form-cadastrar').style.display = tab === 'cadastrar' ? '' : 'none';
+  document.getElementById('tab-entrar').classList.toggle('active',    tab === 'entrar');
+  document.getElementById('tab-cadastrar').classList.toggle('active', tab === 'cadastrar');
+  document.getElementById('auth-erro').textContent = '';
+  document.getElementById(tab === 'entrar' ? 'auth-email' : 'cad-email').focus();
+}
+
+function _mostrarErroAuth(msg) {
+  var el = document.getElementById('auth-erro');
+  if (el) el.textContent = msg;
+}
+
+var _MSGS_AUTH = {
+  'auth/user-not-found':        'Usuário não encontrado.',
+  'auth/wrong-password':        'Senha incorreta.',
+  'auth/invalid-credential':    'E-mail ou senha incorretos.',
+  'auth/email-already-in-use':  'Este e-mail já está cadastrado.',
+  'auth/weak-password':         'A senha deve ter pelo menos 6 caracteres.',
+  'auth/invalid-email':         'E-mail inválido.',
+  'auth/network-request-failed':'Sem conexão. Verifique a internet.',
+  'auth/too-many-requests':     'Muitas tentativas. Aguarde alguns minutos.',
+  'auth/missing-password':      'Digite a senha.'
+};
+
+async function loginUsuario() {
+  var email = document.getElementById('auth-email').value.trim();
+  var senha = document.getElementById('auth-password').value;
+  if (!email || !senha) { _mostrarErroAuth('Preencha e-mail e senha.'); return; }
+  var btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  try {
+    await _auth.signInWithEmailAndPassword(email, senha);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function registrarUsuario() {
+  var email  = document.getElementById('cad-email').value.trim();
+  var senha  = document.getElementById('cad-password').value;
+  var senha2 = document.getElementById('cad-password2').value;
+  if (!email || !senha)  { _mostrarErroAuth('Preencha todos os campos.'); return; }
+  if (senha !== senha2)  { _mostrarErroAuth('As senhas não coincidem.'); return; }
+  if (senha.length < 6)  { _mostrarErroAuth('Mínimo de 6 caracteres na senha.'); return; }
+  var btn = document.getElementById('btn-cadastrar');
+  btn.disabled = true;
+  try {
+    await _auth.createUserWithEmailAndPassword(email, senha);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function resetarSenha() {
+  var email = document.getElementById('auth-email').value.trim();
+  if (!email) { _mostrarErroAuth('Digite seu e-mail acima para redefinir a senha.'); return; }
+  try {
+    await _auth.sendPasswordResetEmail(email);
+    _mostrarErroAuth('');
+    mostrarToast('&#128231; E-mail de redefinição enviado!', '#1a3a1a', 5000);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+  }
+}
+
+async function sairUsuario() {
+  if (!confirm('Deseja sair?')) return;
+  await _auth.signOut();
+}
+
+function atualizarStatusUsuario() {
+  var el = document.getElementById('user-status');
+  if (!el) return;
+  if (_user) {
+    el.innerHTML =
+      '<span class="user-email">' + _user.email + '</span>' +
+      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
+  } else {
+    el.innerHTML = '';
   }
 }
 
 // ----------------------------------------------------------
-// GERAR LAUDO — lógica clínica original preservada integralmente
+// GERAR LAUDO — lógica clínica preservada integralmente
 // ----------------------------------------------------------
 
+function _isChecked(id) {
+  var el = document.getElementById(id);
+  return !!(el && el.checked);
+}
+
+function _coletarSecao(containerId, sep) {
+  var el = document.getElementById(containerId);
+  if (!el) return '';
+  var texto = '';
+  el.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+    texto += cb.value + sep;
+  });
+  return texto;
+}
+
 function generateText() {
-  var text = "<strong style='bold'>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>";
+  var eqText   = _coletarSecao('equipamento', '<br><br><br>');
+  var sedText  = _coletarSecao('Sedação',     '<br><br>');
+  var estText  = _coletarSecao('Estômago',    '<br><br>');
+  var duoText  = _coletarSecao('Duodeno',     '<br><br>');
+  var jejText  = _coletarSecao('Jejuno',      '<br><br>');
+  var outText  = _coletarSecao('Outros',      '<br><br>');
+  var concText = _coletarSecao('Conclusão',   '<br>');
 
-  var equipamentoText = "";
-  $("#equipamento input[type='checkbox']:checked").each(function() {
-    equipamentoText += $(this).val() + "<br><br><br>";
-  });
-  if (equipamentoText) text += equipamentoText;
-
-  var sedacaoText = "";
-  $("#Sedação input[type='checkbox']:checked").each(function() {
-    sedacaoText += $(this).val() + "<br><br>";
-  });
-  if (sedacaoText) {
-    if ($("#geral").is(":checked")) {
-      text += sedacaoText;
-    } else {
-      text += "<strong style='bold'>Sedação: </strong>" + sedacaoText;
-    }
-  }
-
-  var esofagoText = "";
+  // Esôfago com detecção de "deslocada"
+  var esfText        = '';
   var deslocadaFound = false;
-  $("#Esôfago input[type='checkbox']:checked").each(function() {
-    var checkboxValue = $(this).val();
-    if (checkboxValue.includes("deslocada")) {
-      checkboxValue = checkboxValue.replace("ajustado", "alargado em relação");
-      deslocadaFound = true;
-    }
-    esofagoText += checkboxValue + "<br><br>";
-  });
-
-  var estomagoText = "";
-  $("#Estômago input[type='checkbox']:checked").each(function() {
-    estomagoText += $(this).val() + "<br><br>";
-  });
-
-  if (deslocadaFound) {
-    estomagoText = estomagoText.replace(/ajustado/g, "alargado em relação");
+  var esfEl = document.getElementById('Esôfago');
+  if (esfEl) {
+    esfEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      var val = cb.value;
+      if (val.includes('deslocada')) { val = val.replace('ajustado', 'alargado em relação'); deslocadaFound = true; }
+      esfText += val + '<br><br>';
+    });
   }
 
-  if ($("#checkboxmi").is(":checked")) {
-    estomagoText = estomagoText.replace(/reduzido/g, "reduzido, além de focos de provável metaplasia intestinal,");
-    estomagoText = estomagoText.replace(/<br><br>/, "");
+  var isGeral = _isChecked('geral');
+  var isMI    = _isChecked('checkboxmi') ||
+                !!(document.querySelector('input[name="MI"]:checked'));
+
+  // Substituições no estômago
+  if (deslocadaFound) estText = estText.replace(/ajustado/g, 'alargado em relação');
+  if (isMI) {
+    estText = estText
+      .replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,')
+      .replace(/<br><br>/, '');
   }
 
-  if (esofagoText)  text += "<strong style='bold'>Esôfago: </strong>"  + esofagoText;
-  if (estomagoText) text += "<strong style='bold'>Estômago: </strong>" + estomagoText;
-
-  var duodenoText = "";
-  $("#Duodeno input[type='checkbox']:checked").each(function() {
-    duodenoText += $(this).val() + "<br><br>";
-  });
-  if (duodenoText) text += "<strong style='bold'>Duodeno: </strong>" + duodenoText;
-
-  var jejunoText = "";
-  $("#Jejuno input[type='checkbox']:checked").each(function() {
-    jejunoText += $(this).val() + "<br><br>";
-  });
-  if (jejunoText) text += "<strong style='bold'>Jejuno: </strong>" + jejunoText;
-
-  var outrosText = "";
-  $("#Outros input[type='checkbox']:checked").each(function() {
-    outrosText += $(this).val() + "<br><br>";
-  });
-  if (outrosText) text += outrosText;
-
-  var conclusaoText = "";
-  $("#Conclusão input[type='checkbox']:checked").each(function() {
-    conclusaoText += $(this).val() + "<br>";
-  });
-
-  if ($("#checkboxmi").is(":checked") || $("input[name='MI']").is(":checked")) {
-    conclusaoText = conclusaoText.replace(/área de atrofia/, "área de atrofia com metaplasia intestinal");
-    conclusaoText = conclusaoText.replace(/atrófica/, "atrófica com metaplasia intestinal");
+  // Substituições na conclusão
+  if (isMI) {
+    concText = concText
+      .replace(/área de atrofia/g,  'área de atrofia com metaplasia intestinal')
+      .replace(/atrófica/g,          'atrófica com metaplasia intestinal');
   }
 
-  if (conclusaoText) text += "<br><br><strong style='bold'>Conclusão:</strong><br><br>" + conclusaoText;
+  // Montagem
+  var text = outText ? '' : '<strong>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>';
 
-  if ($("#Outros input[type='checkbox']:checked").length > 0) {
-    text = text.replace("<strong style='bold'>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>", "");
-  }
+  if (eqText)   text += eqText;
+  if (sedText)  text += isGeral ? sedText : '<strong>Sedação: </strong>' + sedText;
+  if (esfText)  text += '<strong>Esôfago: </strong>'  + esfText;
+  if (estText)  text += '<strong>Estômago: </strong>' + estText;
+  if (duoText)  text += '<strong>Duodeno: </strong>'  + duoText;
+  if (jejText)  text += '<strong>Jejuno: </strong>'   + jejText;
+  if (outText)  text += outText;
+  if (concText) text += '<br><br><strong>Conclusão:</strong><br><br>' + concText;
 
-  // Converte bold class → inline style para compatibilidade Firefox
-  text = text.replace(/<span class='bold'>/g, '<span style="font-weight:bold">')
-             .replace(/<span class="bold">/g, '<span style="font-weight:bold">');
+  text = text
+    .replace(/<span class='bold'>/g, '<span style="font-weight:bold">')
+    .replace(/<span class="bold">/g, '<span style="font-weight:bold">');
 
-  $('#output').html(text);
   var output = document.getElementById('output');
-  var htmlFormatado = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
+  output.innerHTML = text;
+
+  var htmlFormatado =
+    '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
 
   if (navigator.clipboard && window.ClipboardItem) {
     navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([htmlFormatado], { type: 'text/html' }),
-      'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
+      'text/html':  new Blob([htmlFormatado],    { type: 'text/html' }),
+      'text/plain': new Blob([output.innerText], { type: 'text/plain' })
     })]).then(function () {
-      mostrarToast('📋 Laudo gerado e copiado!', '#1a3a1a');
+      mostrarToast('&#128203; Laudo gerado e copiado!', '#1a3a1a');
     }).catch(function () { copiarPorSelecao(output); });
   } else {
     copiarPorSelecao(output);
@@ -930,14 +995,12 @@ function generateText() {
 
 function copiarPorSelecao(output) {
   output.focus();
-  var sel   = window.getSelection();
-  var range = document.createRange();
+  var sel = window.getSelection(), range = document.createRange();
   range.selectNodeContents(output);
-  sel.removeAllRanges();
-  sel.addRange(range);
+  sel.removeAllRanges(); sel.addRange(range);
   document.execCommand('copy');
   sel.removeAllRanges();
-  mostrarToast('📋 Laudo gerado e copiado!', '#1a3a1a');
+  mostrarToast('&#128203; Laudo gerado e copiado!', '#1a3a1a');
 }
 
 // ----------------------------------------------------------
@@ -946,33 +1009,30 @@ function copiarPorSelecao(output) {
 
 function copiarConteudo() {
   var output = document.getElementById('output');
-  var htmlFormatado = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
+  var html   = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
   if (navigator.clipboard && window.ClipboardItem) {
     navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([htmlFormatado], { type: 'text/html' }),
-      'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
+      'text/html':  new Blob([html],             { type: 'text/html' }),
+      'text/plain': new Blob([output.innerText], { type: 'text/plain' })
     })]).then(function () {
-      mostrarToast('📄 Texto copiado!');
-    }).catch(function () { copiarPorSelecao(output); mostrarToast('📄 Texto copiado!'); });
+      mostrarToast('&#128196; Texto copiado!');
+    }).catch(function () { copiarPorSelecao(output); mostrarToast('&#128196; Texto copiado!'); });
   } else {
-    copiarPorSelecao(output);
-    mostrarToast('📄 Texto copiado!');
+    copiarPorSelecao(output); mostrarToast('&#128196; Texto copiado!');
   }
 }
 
 async function copiarFormatado() {
   var output = document.getElementById('output');
-  var html = '<div style="font-family:Arial,sans-serif;font-size:11pt;">' + output.innerHTML + '</div>';
+  var html   = '<div style="font-family:Arial,sans-serif;font-size:11pt;">' + output.innerHTML + '</div>';
   if (navigator.clipboard && window.ClipboardItem) {
     try {
       await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],              { type: 'text/html' }),
-        'text/plain': new Blob([output.innerText],  { type: 'text/plain' })
+        'text/html':  new Blob([html],             { type: 'text/html' }),
+        'text/plain': new Blob([output.innerText], { type: 'text/plain' })
       })]);
-      mostrarToast('🖨️ Copiado em Arial 11!');
-      return;
+      mostrarToast('&#128424; Copiado em Arial 11!'); return;
     } catch (e) { /* fallback */ }
   }
-  copiarPorSelecao(output);
-  mostrarToast('🖨️ Copiado em Arial 11!');
+  copiarPorSelecao(output); mostrarToast('&#128424; Copiado em Arial 11!');
 }

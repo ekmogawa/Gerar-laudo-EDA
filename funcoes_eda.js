@@ -10,7 +10,8 @@
 var _auth      = null;   // firebase.auth()
 var _firestore = null;   // firebase.firestore()
 var _user      = null;   // usuário autenticado atual
-var _modoVisitante = false;
+var _modoVisitante  = false;
+var _CADASTRO_ABERTO = false; // mude para true para reabrir o cadastro
 
 // Entrada para a versão gratuita (free.html) — sem Firebase
 function inicializarLivre() {
@@ -47,6 +48,10 @@ function inicializarFirebase() {
         id === 'auth-password' ? loginUsuario() : registrarUsuario();
       });
     });
+
+    // Oculta aba de cadastro se fechado
+    var tabCad = document.getElementById('tab-cadastrar');
+    if (tabCad) tabCad.style.display = _CADASTRO_ABERTO ? '' : 'none';
 
     _auth.onAuthStateChanged(function (user) {
       _user = user;
@@ -907,6 +912,10 @@ async function loginUsuario() {
 }
 
 async function registrarUsuario() {
+  if (!_CADASTRO_ABERTO) {
+    _mostrarErroAuth('Cadastro de novas contas está temporariamente suspenso.');
+    return;
+  }
   var email  = document.getElementById('cad-email').value.trim();
   var senha  = document.getElementById('cad-password').value;
   var senha2 = document.getElementById('cad-password2').value;

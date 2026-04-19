@@ -430,10 +430,20 @@
       <input type="email"    id="cad-email"     placeholder="E-mail">
       <input type="password" id="cad-password"  placeholder="Senha (mín. 6 caracteres)">
       <input type="password" id="cad-password2" placeholder="Confirmar senha">
+      <input type="text"     id="cad-codigo"    placeholder="Código de acesso" autocomplete="off" style="text-transform:uppercase">
       <button class="btn-primary btn-full" id="btn-cadastrar" onclick="registrarUsuario()">Cadastrar</button>
     </div>
 
     <p id="auth-erro"></p>
+
+    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center;">
+      <button class="btn-muted btn-full" id="btn-visitante" onclick="entrarComoVisitante()">
+        &#128100; Entrar como Visitante
+      </button>
+      <p style="font-size:11.5px;color:var(--ink3);margin-top:8px;line-height:1.4;">
+        Acesso somente leitura · nenhuma alteração será salva
+      </p>
+    </div>
   </div>
 </div>
 

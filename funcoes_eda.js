@@ -10,6 +10,13 @@
 var _auth      = null;   // firebase.auth()
 var _firestore = null;   // firebase.firestore()
 var _user      = null;   // usuário autenticado atual
+var _modoVisitante = false;
+
+// Entrada para a versão gratuita (free.html) — sem Firebase
+function inicializarLivre() {
+  var dados = (typeof DB_PADRAO !== 'undefined') ? DB_PADRAO : {};
+  inicializar(dados);
+}
 
 function inicializarFirebase() {
   if (typeof FIREBASE_CONFIG === 'undefined' ||
@@ -43,11 +50,13 @@ function inicializarFirebase() {
 
     _auth.onAuthStateChanged(function (user) {
       _user = user;
+      _modoVisitante = !!(user && user.isAnonymous);
       if (user) {
         ocultarModalAuth();
         atualizarStatusUsuario();
         carregarDados();
       } else {
+        _modoVisitante = false;
         mostrarModalAuth();
         atualizarStatusUsuario();
         _limparDOM();
@@ -75,6 +84,7 @@ var _autoSaveTimer = null;
 var _temAlteracoes = false;
 
 function agendarAutoSave() {
+  if (_modoVisitante) return;
   _temAlteracoes = true;
   atualizarIndicadorSalvo();
   if (!_autoSaveAtivo) return;
@@ -454,6 +464,10 @@ function abrirPopup(id) {
 }
 
 function showPopup() {
+  if (_modoVisitante) {
+    mostrarToast('&#128100; Modo visitante \u2014 edi\u00e7\u00e3o n\u00e3o permitida.', '#7a4000', 4000);
+    return;
+  }
   var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
   var container  = document.getElementById('checkbox-list');
   container.innerHTML = '';
@@ -536,6 +550,10 @@ function updateOnlyValue(id, newValue) {
 }
 
 function deleteCheckedCheckboxes() {
+  if (_modoVisitante) {
+    mostrarToast('&#128100; Modo visitante \u2014 exclus\u00e3o n\u00e3o permitida.', '#7a4000', 4000);
+    return;
+  }
   var checkboxes = document.querySelectorAll('input[type="checkbox"]:checked');
   if (checkboxes.length === 0) return;
   if (!confirm('Deseja excluir os ' + checkboxes.length + ' item(ns) selecionado(s)?')) return;
@@ -552,6 +570,10 @@ function hideCreatePopup() {
 }
 
 function createCheckbox() {
+  if (_modoVisitante) {
+    mostrarToast('&#128100; Modo visitante \u2014 cria\u00e7\u00e3o n\u00e3o permitida.', '#7a4000', 4000);
+    return;
+  }
   var nome      = document.getElementById('checkbox-name').value.trim();
   var valor     = document.getElementById('checkbox-value').value.replace(/\n/g, '<br>');
   var sectionId = document.getElementById('section-select').value;
@@ -646,6 +668,23 @@ function coletarDB() {
 async function carregarDados() {
   if (!_user || !_firestore) return;
   mostrarToast('&#8987; Carregando\u2026', '#1a2e3a', 8000);
+
+  if (_modoVisitante) {
+    try {
+      var vDoc = await _firestore.collection('visitante').doc('publico').get();
+      var vDados = (vDoc.exists && vDoc.data() && vDoc.data().db)
+        ? vDoc.data().db
+        : (typeof DB_PADRAO !== 'undefined' ? DB_PADRAO : {});
+      inicializar(vDados);
+      mostrarToast('&#128100; Modo visitante \u2014 somente leitura', '#1a3a5a', 3500);
+    } catch (e) {
+      console.error('[carregarDados visitante]', e);
+      inicializar(typeof DB_PADRAO !== 'undefined' ? DB_PADRAO : {});
+      mostrarToast('&#128100; Visitante (banco padr\u00e3o)', '#1a3a5a', 3500);
+    }
+    return;
+  }
+
   try {
     var doc = await _firestore.collection('users').doc(_user.uid).get();
     var dados;
@@ -669,6 +708,10 @@ async function carregarDados() {
 }
 
 async function salvarDados() {
+  if (_modoVisitante) {
+    mostrarToast('&#128100; Modo visitante \u2014 salvamento n\u00e3o permitido.', '#7a4000', 4000);
+    return;
+  }
   if (!_user || !_firestore) {
     mostrarToast('&#9888; Faça login para salvar.', '#7a4000', 5000);
     return;
@@ -685,6 +728,12 @@ async function salvarDados() {
     _temAlteracoes = false;
     atualizarIndicadorSalvo();
     mostrarToast('&#10003; Salvo!', '#1a3a1a', 2500);
+
+    // Sincroniza banco público para visitantes
+    if (_user.email === 'ekmogawa@gmail.com') {
+      _firestore.collection('visitante').doc('publico').set({ db: db })
+        .catch(function (e) { console.warn('[visitante sync]', e); });
+    }
   } catch (e) {
     console.error('[salvarDados]', e);
     mostrarToast('&#10060; Erro ao salvar: ' + e.message, '#7a1a1a', 10000);
@@ -696,6 +745,10 @@ async function salvarDados() {
 // ----------------------------------------------------------
 
 async function salvarBackupGitHub() {
+  if (_modoVisitante) {
+    mostrarToast('&#128100; Modo visitante \u2014 backup n\u00e3o permitido.', '#7a4000', 4000);
+    return;
+  }
   var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
   var token = sessionStorage.getItem('colono_github_token') || c.token;
 
@@ -857,17 +910,52 @@ async function registrarUsuario() {
   var email  = document.getElementById('cad-email').value.trim();
   var senha  = document.getElementById('cad-password').value;
   var senha2 = document.getElementById('cad-password2').value;
-  if (!email || !senha)  { _mostrarErroAuth('Preencha todos os campos.'); return; }
-  if (senha !== senha2)  { _mostrarErroAuth('As senhas não coincidem.'); return; }
-  if (senha.length < 6)  { _mostrarErroAuth('Mínimo de 6 caracteres na senha.'); return; }
+  var codigo = document.getElementById('cad-codigo').value.trim().toUpperCase();
+
+  if (!email || !senha || !codigo) { _mostrarErroAuth('Preencha todos os campos, incluindo o código de acesso.'); return; }
+  if (senha !== senha2)            { _mostrarErroAuth('As senhas não coincidem.'); return; }
+  if (senha.length < 6)            { _mostrarErroAuth('Mínimo de 6 caracteres na senha.'); return; }
+
   var btn = document.getElementById('btn-cadastrar');
   btn.disabled = true;
+
   try {
-    await _auth.createUserWithEmailAndPassword(email, senha);
+    // 1. Verificar se o código existe e não foi usado
+    var codigoDoc = await _firestore.collection('codigos').doc(codigo).get();
+    if (!codigoDoc.exists || codigoDoc.data().usado) {
+      _mostrarErroAuth('Código de acesso inválido ou já utilizado.');
+      return;
+    }
+
+    // 2. Criar a conta
+    var cred = await _auth.createUserWithEmailAndPassword(email, senha);
+
+    // 3. Marcar código como usado
+    await _firestore.collection('codigos').doc(codigo).update({
+      usado:    true,
+      usadoPor: cred.user.uid,
+      usadoEm:  firebase.firestore.FieldValue.serverTimestamp()
+    });
+
   } catch (e) {
     _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
   } finally {
     btn.disabled = false;
+  }
+}
+
+async function entrarComoVisitante() {
+  var btn = document.getElementById('btn-visitante');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aguarde\u2026'; }
+  try {
+    await _auth.signInAnonymously();
+  } catch (e) {
+    _mostrarErroAuth(
+      e.code === 'auth/operation-not-allowed'
+        ? 'Acesso como visitante n\u00e3o habilitado. Contate o administrador.'
+        : ('Erro: ' + (e.message || e))
+    );
+    if (btn) { btn.disabled = false; btn.textContent = '&#128100; Entrar como Visitante'; }
   }
 }
 
@@ -891,7 +979,11 @@ async function sairUsuario() {
 function atualizarStatusUsuario() {
   var el = document.getElementById('user-status');
   if (!el) return;
-  if (_user) {
+  if (_user && _modoVisitante) {
+    el.innerHTML =
+      '<span class="user-email" style="background:rgba(255,180,0,.18);border-color:rgba(255,180,0,.4);color:rgba(255,240,180,.95);">&#128100; Visitante</span>' +
+      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
+  } else if (_user) {
     el.innerHTML =
       '<span class="user-email">' + _user.email + '</span>' +
       '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';

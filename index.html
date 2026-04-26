@@ -45,7 +45,9 @@
       }
       loadScript('dados_eda.js', function () {
         loadScript('funcoes_eda.js', function () {
-          domReady(inicializarFirebase);
+          loadScript('historico_eda.js', function () {
+            domReady(inicializarFirebase);
+          });
         });
       });
     })();
@@ -122,16 +124,139 @@
       border: 1px solid rgba(255,255,255,.18);
     }
 
-    /* ── TOOLBAR ── */
+    /* ── TOOLBAR (legacy — escondida quando sidebar ativa) ── */
     .toolbar {
       background: var(--panel);
       border-bottom: 1px solid var(--border);
       padding: 8px 20px;
-      display: flex;
+      display: none;
       align-items: center;
       gap: 5px;
       flex-wrap: wrap;
       box-shadow: var(--shadow);
+    }
+
+    /* ── SIDEBAR ── */
+    body { padding-left: 135px; }
+    .sidebar {
+      position: fixed; top: 0; left: 0; bottom: 0;
+      width: 135px;
+      background: var(--panel);
+      border-right: 1px solid var(--border);
+      box-shadow: 2px 0 10px rgba(0,0,0,.04);
+      display: flex; flex-direction: column;
+      padding: 14px 10px 18px;
+      gap: 4px;
+      z-index: 90;
+      overflow-y: auto;
+    }
+    .sidebar .sb-brand {
+      font-family: 'DM Mono', monospace; font-size: 11px;
+      color: var(--ink3); padding: 0 8px 8px; letter-spacing: .08em;
+      text-transform: uppercase; border-bottom: 1px solid var(--border);
+      margin-bottom: 6px;
+    }
+    .sidebar button {
+      width: 100%; justify-content: flex-start;
+      padding: 8px 10px; font-size: 13px;
+    }
+    .sidebar .sb-divider { height: 1px; background: var(--border); margin: 8px 4px; }
+    .sidebar .sb-section-label {
+      font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
+      color: var(--ink3); padding: 6px 10px 2px; font-weight: 600;
+    }
+    .sidebar button[disabled] { opacity: .45; cursor: not-allowed; }
+
+    /* Submenu flutuante "Salvar ▾" */
+    .sb-submenu {
+      display: none;
+      position: fixed; left: 143px;
+      background: var(--panel);
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      box-shadow: 0 8px 24px rgba(0,0,0,.18);
+      min-width: 240px;
+      z-index: 95;
+      padding: 6px;
+    }
+    .sb-submenu.show { display: block; }
+    .sb-submenu button {
+      width: 100%; justify-content: flex-start;
+      padding: 8px 12px; font-size: 13px;
+      background: transparent; color: var(--ink2);
+      border: none; text-align: left; border-radius: 5px;
+      display: flex; align-items: center;
+    }
+    .sb-submenu button:hover { background: var(--accent-l); color: var(--primary); }
+    .sb-submenu .sb-toggle-state {
+      margin-left: auto; font-size: 10.5px;
+      padding: 2px 7px; border-radius: 9px;
+      background: var(--border); color: var(--ink3);
+      font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
+    }
+    .sb-submenu .sb-toggle-state.on {
+      background: var(--accent); color: #fff;
+    }
+
+    /* Caixa de texto lateral (output sticky 2-col) */
+    body.lateral-on .wrap {
+      max-width: none;
+      display: grid;
+      grid-template-columns: 1460px minmax(380px, 1fr);
+      gap: 16px;
+      align-items: start;
+    }
+    /* Janelas mais estreitas: proporção 2/3 seções e 1/3 caixa */
+    @media (max-width: 1900px) {
+      body.lateral-on .wrap {
+        grid-template-columns: 2fr 1fr;
+      }
+    }
+    /* Janela pequena demais — desativa caixa lateral pra evitar quebra */
+    @media (max-width: 1280px) {
+      body.lateral-on .wrap {
+        display: block;
+        max-width: 1500px;
+        margin: 0 auto;
+      }
+      body.lateral-on .wrap > .output-wrap {
+        position: static;
+        max-height: none;
+        margin-top: 12px;
+      }
+    }
+
+    /* Estado ON do botão Caixa Lateral */
+    body.lateral-on #btn-caixa-lateral {
+      background: var(--accent);
+      color: #fff;
+      border-color: var(--accent);
+    }
+
+    /* Footer alinhado com a coluna das checkboxes quando lateral on */
+    body.lateral-on .wrap > footer { grid-column: 1 / 2; }
+
+    /* Botão "Sair" no header — aparência clara em fundo escuro */
+    #user-status button {
+      color: rgba(255,255,255,.92) !important;
+      background: rgba(255,255,255,.12) !important;
+      border: 1px solid rgba(255,255,255,.3) !important;
+    }
+    #user-status button:hover {
+      background: rgba(255,255,255,.22) !important;
+      color: #fff !important;
+    }
+    body.lateral-on .wrap > .output-wrap {
+      position: sticky;
+      top: 12px;
+      margin-top: 0;
+      max-height: calc(100vh - 24px);
+      display: flex;
+      flex-direction: column;
+    }
+    body.lateral-on .wrap > .output-wrap #output {
+      flex: 1 1 auto;
+      overflow-y: auto;
     }
     .tsep { width:1px; height:20px; background:var(--border2); margin:0 3px; }
 
@@ -170,6 +295,27 @@
       max-width: 1500px;
       margin: 0 auto;
       padding: 14px 20px 0;
+    }
+
+    /* ── MOBILE / TABLET ── */
+    @media (max-width: 900px) {
+      body { padding-left: 0; }
+      .sidebar { display: none; }
+      .toolbar { display: flex; position: sticky; top: 0; z-index: 50; padding: 8px 10px; gap: 4px; }
+      .wrap { padding: 10px 10px 0; }
+      button { font-size: 12.5px; padding: 6px 10px; }
+      .sec-row { flex-direction: column; }
+      .sec-label { width: 100%; border-right: none; border-bottom: 1px solid var(--border2); padding: 8px 12px; }
+      .sec-content { padding: 8px 10px; }
+      .ctrl-row { padding: 6px; }
+      .item label { font-size: 13px; }
+      .output-wrap { margin-top: 10px; }
+      #output { padding: 12px; font-size: 11pt; }
+      .header-right { display: none; }
+      .app-header { padding: 0 12px; }
+      body.lateral-on .wrap { display: block; }
+      body.lateral-on .wrap > .output-wrap { position: static; max-height: none; }
+      .output-bar { display: flex; }
     }
 
     /* ── TABELA DE SEÇÕES ── */
@@ -447,24 +593,57 @@
   </div>
 </div>
 
+<aside class="sidebar">
+  <div class="sb-brand">📑 EDA</div>
+
+  <div class="sb-section-label">Geral</div>
+  <button class="btn-save" onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
+  <button class="btn-ghost" id="btn-caixa-lateral" onclick="toggleCaixaLateral(); refrescarMenuSalvar()" title="Caixa de texto lateral"><span id="sb-state-lateral" hidden></span>📐 Caixa Lateral</button>
+  <div class="sb-submenu" id="sb-menu-salvar">
+    <button onclick="salvarDados(); fecharMenuSalvar()">💾 Salvar agora</button>
+    <button onclick="toggleAutoSave(); refrescarMenuSalvar()">🔄 Auto-save <span class="sb-toggle-state" id="sb-state-autosave">OFF</span></button>
+    <button onclick="salvarBackupGitHub(); fecharMenuSalvar()">☁ Backup no GitHub</button>
+  </div>
+
+  <div class="sb-divider"></div>
+  <div class="sb-section-label">Histórico</div>
+  <button class="btn-ghost" id="btn-desfazer"  onclick="desfazer()"  title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
+  <button class="btn-ghost" id="btn-refazer"   onclick="refazer()"   title="Refazer (Ctrl+Y)"  disabled>↷ Refazer</button>
+  <button class="btn-ghost" id="btn-recuperar" onclick="recuperarUltimoLaudo()" title="Restaurar o estado do último laudo gerado nesta sessão" disabled>↺ Último laudo</button>
+
+  <div class="sb-divider"></div>
+  <div class="sb-section-label">Itens</div>
+  <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
+  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
+  <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
+
+  <div class="sb-divider"></div>
+  <div class="sb-section-label">Laudo</div>
+  <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
+  <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
+  <button class="btn-ghost"   onclick="uncheckAll()">✕ Limpar</button>
+</aside>
+
 <header class="app-header">
-  <h1>📑 Endoscopia Digestiva Alta <em>Gerador de Laudo</em></h1>
+  <h1>📑 <em>Gerador de Laudo:</em> ENDOSCOPIA DIGESTIVA ALTA</h1>
   <div class="header-right">
     <span id="save-indicator"></span>
     <div id="user-status"></div>
   </div>
 </header>
 
+<!-- TOOLBAR (legacy — visível só no mobile) -->
 <div class="toolbar">
   <button class="btn-save"  onclick="salvarDados()">💾 Salvar</button>
-  <button class="btn-ghost" id="btn-autosave" onclick="toggleAutoSave()">🔄 Auto-save: OFF</button>
-  <div class="tsep"></div>
+  <button class="btn-ghost" id="btn-autosave-mob" onclick="toggleAutoSave()">🔄 Auto-save: OFF</button>
+  <button class="btn-ghost" onclick="desfazer()" title="Ctrl+Z">↶</button>
+  <button class="btn-ghost" onclick="refazer()" title="Ctrl+Y">↷</button>
+  <button class="btn-ghost" onclick="recuperarUltimoLaudo()">↺</button>
   <button class="btn-ghost" onclick="uncheckAll()">✕ Limpar</button>
-  <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
-  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
-  <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
-  <div class="tsep"></div>
-  <button class="btn-muted" onclick="salvarBackupGitHub()" title="Exportar dados_eda.js para o GitHub como backup">☁ Backup</button>
+  <button class="btn-ghost" onclick="showPopup()">✏️</button>
+  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑</button>
+  <button class="btn-ghost" onclick="showCreatePopup()">＋</button>
+  <button class="btn-muted" onclick="salvarBackupGitHub()">☁</button>
 </div>
 
 <div id="toast"></div>
@@ -600,16 +779,15 @@
   <!-- OUTPUT -->
   <div class="output-wrap">
     <div class="output-bar">
-      <button class="btn-primary" onclick="generateText()">📋 Gerar e Copiar Laudo</button>
-      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
-      <button class="btn-muted"   onclick="copiarConteudo()">📄 Copiar texto</button>
+      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
       <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
+      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
     </div>
     <div id="output" contenteditable="true"></div>
   </div>
-</div>
 
-<footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>
+  <footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>
+</div>
 
 <!-- fecharTodosPopups, hidePopup, hideCreatePopup definidos em funcoes_eda.js -->
 </body>

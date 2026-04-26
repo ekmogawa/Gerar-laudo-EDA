@@ -92,10 +92,14 @@ function agendarAutoSave() {
   if (_modoVisitante) return;
   _temAlteracoes = true;
   atualizarIndicadorSalvo();
+  registrarSnapshot();
+  if (typeof _agendarLiveLaudo === 'function') _agendarLiveLaudo();
   if (!_autoSaveAtivo) return;
   clearTimeout(_autoSaveTimer);
   _autoSaveTimer = setTimeout(salvarDados, 1500);
 }
+
+// HISTÓRICO + BUSCA RÁPIDA — ver historico_eda.js
 
 function toggleAutoSave() {
   _autoSaveAtivo = !_autoSaveAtivo;
@@ -142,6 +146,7 @@ var _contadorDinamico = 0;
 function createCheckboxDiv(text, name) {
   var div = document.createElement('div');
   div.className = 'item item-dinamico';
+  div.setAttribute('data-populated', '1');
   div.style.display = 'block';
   var nomeUnico = name + '_d' + (++_contadorDinamico);
   div.innerHTML =
@@ -232,6 +237,9 @@ function inicializar(dados) {
   _temAlteracoes = false;
   atualizarIndicadorSalvo();
   atualizarBotaoAutoSave();
+
+  _instalarHistorico();
+  if (!_histAplicando) _resetHistorico();
 }
 
 function _limparDOM() {
@@ -611,6 +619,8 @@ function createCheckbox() {
 
 function uncheckAll() {
   document.querySelectorAll('input[type="checkbox"]').forEach(function (cb) { cb.checked = false; });
+  registrarSnapshot();
+  if (typeof _agendarLiveLaudo === 'function') _agendarLiveLaudo();
 }
 
 // ----------------------------------------------------------
@@ -619,11 +629,13 @@ function uncheckAll() {
 
 var IDS_CONTROLE_EDA = new Set(['sedacao-sortable']);
 
-function serializarSecao(containerId) {
+function serializarSecao(containerId, opts) {
+  opts = opts || {};
   var container = document.getElementById(containerId);
   if (!container) return [];
   var itens = [];
   container.querySelectorAll(':scope > .item').forEach(function (div) {
+    if (opts.semDinamicos && div.classList.contains('item-dinamico')) return;
     if (div.getAttribute('data-sep') === '1') { itens.push({ separador: true }); return; }
     var cb = div.querySelector('input[type="checkbox"]');
     if (!cb || IDS_CONTROLE_EDA.has(cb.id) || IDS_CONTROLE_EDA.has(cb.name)) return;
@@ -650,19 +662,19 @@ function montarConteudoJS(dbObj) {
   );
 }
 
-function coletarDB() {
+function coletarDB(opts) {
   var fentanilOpts  = Array.from(document.getElementById('fentanil').options).map(function (o) { return o.value; });
   var midazolamOpts = Array.from(document.getElementById('midazolam').options).map(function (o) { return o.value; });
   return {
-    equipamento:    serializarSecao('sortable-equipamento'),
-    sedacao:        serializarSecao('sortable-sedacao'),
+    equipamento:    serializarSecao('sortable-equipamento', opts),
+    sedacao:        serializarSecao('sortable-sedacao', opts),
     sedacaoSelects: { fentanil: fentanilOpts, midazolam: midazolamOpts },
-    esofago:        serializarSecao('sortable-esofago'),
-    estomago:       serializarSecao('sortable-estomago'),
-    duodeno:        serializarSecao('sortable-duodeno'),
-    jejuno:         serializarSecao('sortable-jejuno'),
-    conclusao:      serializarSecao('sortable-conclusao'),
-    outros:         serializarSecao('sortable-outros')
+    esofago:        serializarSecao('sortable-esofago', opts),
+    estomago:       serializarSecao('sortable-estomago', opts),
+    duodeno:        serializarSecao('sortable-duodeno', opts),
+    jejuno:         serializarSecao('sortable-jejuno', opts),
+    conclusao:      serializarSecao('sortable-conclusao', opts),
+    outros:         serializarSecao('sortable-outros', opts)
   };
 }
 
@@ -724,7 +736,7 @@ async function salvarDados() {
   clearTimeout(_autoSaveTimer);
   mostrarToast('&#128260; Salvando\u2026', '#1a2e3a', 6000);
   try {
-    var db = coletarDB();
+    var db = coletarDB({ semDinamicos: true });
     await _firestore.collection('users').doc(_user.uid).set(
       { db: db, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() },
       { merge: true }
@@ -785,7 +797,7 @@ async function salvarBackupGitHub() {
       var getData = await getResp.json().catch(function () { return {}; });
       getSha = getData.sha;
     }
-    var dbAtual   = coletarDB();
+    var dbAtual   = coletarDB({ semDinamicos: true });
     var conteudo  = montarConteudoJS(dbAtual);
     var b64       = btoa(unescape(encodeURIComponent(conteudo)));
     var body = { message: 'Backup via EDA \u2014 ' + new Date().toLocaleString('pt-BR'), content: b64, branch: branch };
@@ -1020,7 +1032,7 @@ function _coletarSecao(containerId, sep) {
   return texto;
 }
 
-function generateText() {
+function montarLaudo() {
   var eqText   = _coletarSecao('equipamento', '<br><br><br>');
   var sedText  = _coletarSecao('Sedação',     '<br><br>');
   var estText  = _coletarSecao('Estômago',    '<br><br>');
@@ -1029,7 +1041,6 @@ function generateText() {
   var outText  = _coletarSecao('Outros',      '<br><br>');
   var concText = _coletarSecao('Conclusão',   '<br>');
 
-  // Esôfago com detecção de "deslocada"
   var esfText        = '';
   var deslocadaFound = false;
   var esfEl = document.getElementById('Esôfago');
@@ -1045,7 +1056,6 @@ function generateText() {
   var isMI    = _isChecked('checkboxmi') ||
                 !!(document.querySelector('input[name="MI"]:checked'));
 
-  // Substituições no estômago
   if (deslocadaFound) estText = estText.replace(/ajustado/g, 'alargado em relação');
   if (isMI) {
     estText = estText
@@ -1053,14 +1063,12 @@ function generateText() {
       .replace(/<br><br>/, '');
   }
 
-  // Substituições na conclusão
   if (isMI) {
     concText = concText
       .replace(/área de atrofia/g,  'área de atrofia com metaplasia intestinal')
       .replace(/atrófica/g,          'atrófica com metaplasia intestinal');
   }
 
-  // Montagem
   var text = outText ? '' : '<strong>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>';
 
   if (eqText)   text += eqText;
@@ -1077,7 +1085,20 @@ function generateText() {
     .replace(/<span class="bold">/g, '<span style="font-weight:bold">');
 
   var output = document.getElementById('output');
+  if (!output) return null;
+  // Não sobrescreve se o usuário está editando o output diretamente
+  if (document.activeElement === output) return output;
   output.innerHTML = text;
+  return output;
+}
+
+function generateText() {
+  var output = montarLaudo();
+  if (!output) return;
+
+  try { output.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
+
+  salvarUltimoLaudo();
 
   var htmlFormatado =
     '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';

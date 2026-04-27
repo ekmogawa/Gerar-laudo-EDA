@@ -147,7 +147,6 @@ function createCheckboxDiv(text, name) {
   var div = document.createElement('div');
   div.className = 'item item-dinamico';
   div.setAttribute('data-populated', '1');
-  div.style.display = 'block';
   var nomeUnico = name + '_d' + (++_contadorDinamico);
   div.innerHTML =
     '<input type="checkbox" name="' + nomeUnico + '" value="' + text + '" checked>' +
@@ -212,6 +211,17 @@ function popularSelect(id, opcoes) {
   });
 }
 
+var _SECOES_EDA = [
+  { sortable: 'sortable-equipamento', chave: 'equipamento' },
+  { sortable: 'sortable-sedacao',     chave: 'sedacao' },
+  { sortable: 'sortable-esofago',     chave: 'esofago' },
+  { sortable: 'sortable-estomago',    chave: 'estomago' },
+  { sortable: 'sortable-duodeno',     chave: 'duodeno' },
+  { sortable: 'sortable-jejuno',      chave: 'jejuno' },
+  { sortable: 'sortable-conclusao',   chave: 'conclusao' },
+  { sortable: 'sortable-outros',      chave: 'outros' }
+];
+
 function inicializar(dados) {
   if (!dados) return;
   window._inicializado = true;
@@ -219,14 +229,7 @@ function inicializar(dados) {
 
   _migrarItensNovos(_DB);
 
-  popularCheckboxSection('sortable-equipamento', _DB.equipamento);
-  popularCheckboxSection('sortable-sedacao',     _DB.sedacao);
-  popularCheckboxSection('sortable-esofago',     _DB.esofago);
-  popularCheckboxSection('sortable-estomago',    _DB.estomago);
-  popularCheckboxSection('sortable-duodeno',     _DB.duodeno);
-  popularCheckboxSection('sortable-jejuno',      _DB.jejuno);
-  popularCheckboxSection('sortable-conclusao',   _DB.conclusao);
-  popularCheckboxSection('sortable-outros',      _DB.outros);
+  _SECOES_EDA.forEach(function (s) { popularCheckboxSection(s.sortable, _DB[s.chave]); });
 
   var ss = _DB.sedacaoSelects || {};
   popularSelect('fentanil',  ss.fentanil);
@@ -244,47 +247,42 @@ function inicializar(dados) {
   if (!_histAplicando) _resetHistorico();
 }
 
+function _idxPorId(arr, id) {
+  return arr.findIndex(function (i) { return i && i.id === id; });
+}
+
+function _inserirAposOuFim(arr, ancoraIdx, item) {
+  if (ancoraIdx >= 0) arr.splice(ancoraIdx + 1, 0, item);
+  else arr.push(item);
+}
+
 function _migrarItensNovos(db) {
   if (!db) return;
   if (Array.isArray(db.estomago)) {
-    var temHipo = db.estomago.some(function (i) { return i && i.id === 'checkboxhipocardia'; });
-    if (!temHipo) {
-      var idxMI = -1;
-      for (var i = 0; i < db.estomago.length; i++) {
-        if (db.estomago[i] && db.estomago[i].id === 'checkboxmi') { idxMI = i; break; }
-      }
-      var novo = { nome: 'Hipotonia de cárdia', id: 'checkboxhipocardia', valor: '' };
-      if (idxMI >= 0) db.estomago.splice(idxMI + 1, 0, novo);
-      else db.estomago.push(novo);
+    if (_idxPorId(db.estomago, 'checkboxhipocardia') < 0) {
+      _inserirAposOuFim(db.estomago, _idxPorId(db.estomago, 'checkboxmi'),
+        { nome: 'Hipotonia de cárdia', id: 'checkboxhipocardia', valor: '' });
     }
-    var idxFundop = -1;
-    for (var k = 0; k < db.estomago.length; k++) {
-      if (db.estomago[k] && db.estomago[k].id === 'checkbox23') { idxFundop = k; break; }
-    }
+    var idxFundop = _idxPorId(db.estomago, 'checkbox23');
     if (idxFundop >= 0 && db.estomago[idxFundop].valor !== '') {
       db.estomago[idxFundop].valor = '';
     }
-    var temFundopMig = db.estomago.some(function (i) { return i && i.id === 'checkboxfundopmig'; });
-    if (!temFundopMig) {
-      var novoFM = { nome: 'Fundop migrada', id: 'checkboxfundopmig', valor: '' };
-      if (idxFundop >= 0) db.estomago.splice(idxFundop + 1, 0, novoFM);
-      else db.estomago.push(novoFM);
+    if (_idxPorId(db.estomago, 'checkboxfundopmig') < 0) {
+      _inserirAposOuFim(db.estomago, idxFundop,
+        { nome: 'Fundop migrada', id: 'checkboxfundopmig', valor: '' });
     }
   }
   if (db.sedacaoSelects && Array.isArray(db.sedacaoSelects.midazolam)) {
     db.sedacaoSelects.midazolam = db.sedacaoSelects.midazolam.map(function (v) {
-      if (typeof v !== 'string') return v;
-      return v.replace(/^\s*\+\s*Midazolam\s*/i, '');
+      return typeof v === 'string' ? v.replace(/^\s*\+\s*Midazolam\s*/i, '') : v;
     });
   }
 }
 
 function _limparDOM() {
   window._inicializado = false;
-  ['sortable-equipamento','sortable-sedacao','sortable-esofago',
-   'sortable-estomago','sortable-duodeno','sortable-jejuno',
-   'sortable-conclusao','sortable-outros'].forEach(function (id) {
-    var el = document.getElementById(id);
+  _SECOES_EDA.forEach(function (s) {
+    var el = document.getElementById(s.sortable);
     if (el) el.querySelectorAll('.item[data-populated]').forEach(function (i) { i.remove(); });
   });
   var out = document.getElementById('output');
@@ -296,10 +294,8 @@ function _limparDOM() {
 // ----------------------------------------------------------
 
 function inicializarSortable() {
-  ['sortable-equipamento','sortable-sedacao','sortable-esofago',
-   'sortable-estomago','sortable-duodeno','sortable-jejuno',
-   'sortable-conclusao','sortable-outros'].forEach(function (id) {
-    var zone = document.getElementById(id);
+  _SECOES_EDA.forEach(function (s) {
+    var zone = document.getElementById(s.sortable);
     if (zone) ativarZona(zone);
   });
 }
@@ -428,10 +424,11 @@ function getAfterElement(zone, x, y, exclude) {
   rows.sort(function (a, b) { return a.y - b.y; });
   if (!rows.length) return null;
 
-  var targetRow = rows[rows.length - 1];
+  var targetRow = null;
   for (var i = 0; i < rows.length; i++) {
     if (y <= rows[i].bottom) { targetRow = rows[i]; break; }
   }
+  if (!targetRow) return null;
   var sorted = targetRow.els.slice().sort(function (a, b) { return a.midX - b.midX; });
   for (var j = 0; j < sorted.length; j++) {
     if (x < sorted[j].midX) return sorted[j].el;
@@ -701,19 +698,12 @@ function montarConteudoJS(dbObj) {
 }
 
 function coletarDB(opts) {
-  var fentanilOpts  = Array.from(document.getElementById('fentanil').options).map(function (o) { return o.value; });
-  var midazolamOpts = Array.from(document.getElementById('midazolam').options).map(function (o) { return o.value; });
-  return {
-    equipamento:    serializarSecao('sortable-equipamento', opts),
-    sedacao:        serializarSecao('sortable-sedacao', opts),
-    sedacaoSelects: { fentanil: fentanilOpts, midazolam: midazolamOpts },
-    esofago:        serializarSecao('sortable-esofago', opts),
-    estomago:       serializarSecao('sortable-estomago', opts),
-    duodeno:        serializarSecao('sortable-duodeno', opts),
-    jejuno:         serializarSecao('sortable-jejuno', opts),
-    conclusao:      serializarSecao('sortable-conclusao', opts),
-    outros:         serializarSecao('sortable-outros', opts)
+  var optsSelect = function (id) {
+    return Array.from(document.getElementById(id).options).map(function (o) { return o.value; });
   };
+  var db = { sedacaoSelects: { fentanil: optsSelect('fentanil'), midazolam: optsSelect('midazolam') } };
+  _SECOES_EDA.forEach(function (s) { db[s.chave] = serializarSecao(s.sortable, opts); });
+  return db;
 }
 
 // ----------------------------------------------------------
@@ -1114,14 +1104,10 @@ function montarLaudo() {
   }
 
   if (isMI) {
-    estText = estText
-      .replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
-  }
-
-  if (isMI) {
+    estText = estText.replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
     concText = concText
-      .replace(/área de atrofia/g,  'área de atrofia com metaplasia intestinal')
-      .replace(/atrófica/g,          'atrófica com metaplasia intestinal');
+      .replace(/área de atrofia/g, 'área de atrofia com metaplasia intestinal')
+      .replace(/atrófica/g,        'atrófica com metaplasia intestinal');
   }
 
   var text = outText ? '' : '<strong>ENDOSCOPIA DIGESTIVA ALTA</strong><br><br><br>';
@@ -1147,27 +1133,32 @@ function montarLaudo() {
   return output;
 }
 
+function _envolverHtml(innerHtml, fontSizePt) {
+  return '<div style="font-family:Arial,sans-serif;font-size:' + fontSizePt + 'pt;">' + innerHtml + '</div>';
+}
+
+async function _copiarSaida(output, fontSizePt, msgSucesso) {
+  var html = _envolverHtml(output.innerHTML, fontSizePt);
+  if (navigator.clipboard && window.ClipboardItem) {
+    try {
+      await navigator.clipboard.write([new ClipboardItem({
+        'text/html':  new Blob([html],             { type: 'text/html' }),
+        'text/plain': new Blob([output.innerText], { type: 'text/plain' })
+      })]);
+      mostrarToast(msgSucesso, '#1a3a1a');
+      return;
+    } catch (e) { /* fallback abaixo */ }
+  }
+  copiarPorSelecao(output);
+  mostrarToast(msgSucesso, '#1a3a1a');
+}
+
 function generateText() {
   var output = montarLaudo();
   if (!output) return;
-
   try { output.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); } catch (e) {}
-
   salvarUltimoLaudo();
-
-  var htmlFormatado =
-    '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
-
-  if (navigator.clipboard && window.ClipboardItem) {
-    navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([htmlFormatado],    { type: 'text/html' }),
-      'text/plain': new Blob([output.innerText], { type: 'text/plain' })
-    })]).then(function () {
-      mostrarToast('&#128203; Laudo gerado e copiado!', '#1a3a1a');
-    }).catch(function () { copiarPorSelecao(output); });
-  } else {
-    copiarPorSelecao(output);
-  }
+  _copiarSaida(output, 12, '&#128203; Laudo gerado e copiado!');
 }
 
 function copiarPorSelecao(output) {
@@ -1177,7 +1168,6 @@ function copiarPorSelecao(output) {
   sel.removeAllRanges(); sel.addRange(range);
   document.execCommand('copy');
   sel.removeAllRanges();
-  mostrarToast('&#128203; Laudo gerado e copiado!', '#1a3a1a');
 }
 
 // ----------------------------------------------------------
@@ -1185,31 +1175,9 @@ function copiarPorSelecao(output) {
 // ----------------------------------------------------------
 
 function copiarConteudo() {
-  var output = document.getElementById('output');
-  var html   = '<div style="font-family:Arial,sans-serif;font-size:12pt;">' + output.innerHTML + '</div>';
-  if (navigator.clipboard && window.ClipboardItem) {
-    navigator.clipboard.write([new ClipboardItem({
-      'text/html':  new Blob([html],             { type: 'text/html' }),
-      'text/plain': new Blob([output.innerText], { type: 'text/plain' })
-    })]).then(function () {
-      mostrarToast('&#128196; Texto copiado!');
-    }).catch(function () { copiarPorSelecao(output); mostrarToast('&#128196; Texto copiado!'); });
-  } else {
-    copiarPorSelecao(output); mostrarToast('&#128196; Texto copiado!');
-  }
+  _copiarSaida(document.getElementById('output'), 12, '&#128196; Texto copiado!');
 }
 
-async function copiarFormatado() {
-  var output = document.getElementById('output');
-  var html   = '<div style="font-family:Arial,sans-serif;font-size:11pt;">' + output.innerHTML + '</div>';
-  if (navigator.clipboard && window.ClipboardItem) {
-    try {
-      await navigator.clipboard.write([new ClipboardItem({
-        'text/html':  new Blob([html],             { type: 'text/html' }),
-        'text/plain': new Blob([output.innerText], { type: 'text/plain' })
-      })]);
-      mostrarToast('&#128424; Copiado em Arial 11!'); return;
-    } catch (e) { /* fallback */ }
-  }
-  copiarPorSelecao(output); mostrarToast('&#128424; Copiado em Arial 11!');
+function copiarFormatado() {
+  _copiarSaida(document.getElementById('output'), 11, '&#128424; Copiado em Arial 11!');
 }

@@ -178,6 +178,31 @@ function _instalarHistorico() {
     }
   });
 
+  try {
+    var alvo = document.querySelector('main') || document.body;
+    var mo = new MutationObserver(function (muts) {
+      if (_histAplicando) return;
+      for (var i = 0; i < muts.length; i++) {
+        var m = muts[i];
+        if (m.type !== 'childList') continue;
+        if (!m.addedNodes.length && !m.removedNodes.length) continue;
+        var nodos = [];
+        m.addedNodes.forEach(function (n) { nodos.push(n); });
+        m.removedNodes.forEach(function (n) { nodos.push(n); });
+        for (var j = 0; j < nodos.length; j++) {
+          var n = nodos[j];
+          if (n.nodeType !== 1) continue;
+          if (n.classList && n.classList.contains('item')) {
+            registrarSnapshot();
+            _agendarLiveLaudo();
+            return;
+          }
+        }
+      }
+    });
+    mo.observe(alvo, { childList: true, subtree: true });
+  } catch (e) { console.warn('[hist] MutationObserver indisponível:', e); }
+
   document.addEventListener('keydown', function (e) {
     var alvo = e.target;
     var emTexto = alvo && (alvo.tagName === 'TEXTAREA' || alvo.isContentEditable ||

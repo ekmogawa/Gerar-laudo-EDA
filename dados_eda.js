@@ -58,12 +58,12 @@ var DB_PADRAO = {
     ],
     "midazolam": [
       "",
-      " + Midazolam 1mg",
-      " + Midazolam 2mg",
-      " + Midazolam 2,5mg",
-      " + Midazolam 3mg",
-      " + Midazolam 4mg",
-      " + Midazolam 5mg"
+      "1mg",
+      "2mg",
+      "2,5mg",
+      "3mg",
+      "4mg",
+      "5mg"
     ]
   },
   "esofago": [
@@ -237,12 +237,22 @@ var DB_PADRAO = {
       "valor": ""
     },
     {
+      "nome": "Hipotonia de cárdia",
+      "id": "checkboxhipocardia",
+      "valor": ""
+    },
+    {
       "separador": true
     },
     {
       "nome": "Fundop",
       "id": "checkbox23",
-      "valor": "volume e distensibilidade preservados. Líquido claro em pequeno volume. Pregueado mucoso normotrófico. À retroversão, nota-se fundoplicatura tópica e continente. A mucosa está preservada em todos os segmentos. Incisura angular sem alterações. Piloro centrado e pérvio."
+      "valor": ""
+    },
+    {
+      "nome": "Fundop migrada",
+      "id": "checkboxfundopmig",
+      "valor": ""
     },
     {
       "nome": "Gastrect Y",

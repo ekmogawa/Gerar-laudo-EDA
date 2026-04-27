@@ -181,7 +181,7 @@ function popularCheckboxSection(containerId, itens) {
       return;
     }
     var div = document.createElement('div');
-    div.className = 'item';
+    div.className = 'item' + (item.valor ? '' : ' item-modificador');
     div.setAttribute('data-populated', '1');
     var idPadrao = item.nome + '-' + containerId;
     var id = item.id || idPadrao;
@@ -217,6 +217,8 @@ function inicializar(dados) {
   window._inicializado = true;
   _DB = JSON.parse(JSON.stringify(dados));
 
+  _migrarItensNovos(_DB);
+
   popularCheckboxSection('sortable-equipamento', _DB.equipamento);
   popularCheckboxSection('sortable-sedacao',     _DB.sedacao);
   popularCheckboxSection('sortable-esofago',     _DB.esofago);
@@ -240,6 +242,41 @@ function inicializar(dados) {
 
   _instalarHistorico();
   if (!_histAplicando) _resetHistorico();
+}
+
+function _migrarItensNovos(db) {
+  if (!db) return;
+  if (Array.isArray(db.estomago)) {
+    var temHipo = db.estomago.some(function (i) { return i && i.id === 'checkboxhipocardia'; });
+    if (!temHipo) {
+      var idxMI = -1;
+      for (var i = 0; i < db.estomago.length; i++) {
+        if (db.estomago[i] && db.estomago[i].id === 'checkboxmi') { idxMI = i; break; }
+      }
+      var novo = { nome: 'Hipotonia de cárdia', id: 'checkboxhipocardia', valor: '' };
+      if (idxMI >= 0) db.estomago.splice(idxMI + 1, 0, novo);
+      else db.estomago.push(novo);
+    }
+    var idxFundop = -1;
+    for (var k = 0; k < db.estomago.length; k++) {
+      if (db.estomago[k] && db.estomago[k].id === 'checkbox23') { idxFundop = k; break; }
+    }
+    if (idxFundop >= 0 && db.estomago[idxFundop].valor !== '') {
+      db.estomago[idxFundop].valor = '';
+    }
+    var temFundopMig = db.estomago.some(function (i) { return i && i.id === 'checkboxfundopmig'; });
+    if (!temFundopMig) {
+      var novoFM = { nome: 'Fundop migrada', id: 'checkboxfundopmig', valor: '' };
+      if (idxFundop >= 0) db.estomago.splice(idxFundop + 1, 0, novoFM);
+      else db.estomago.push(novoFM);
+    }
+  }
+  if (db.sedacaoSelects && Array.isArray(db.sedacaoSelects.midazolam)) {
+    db.sedacaoSelects.midazolam = db.sedacaoSelects.midazolam.map(function (v) {
+      if (typeof v !== 'string') return v;
+      return v.replace(/^\s*\+\s*Midazolam\s*/i, '');
+    });
+  }
 }
 
 function _limparDOM() {
@@ -453,8 +490,9 @@ function inicializarConcNormal() {
 function addParametersedacao() {
   var fentanil  = document.getElementById('fentanil').value;
   var midazolam = document.getElementById('midazolam').value;
+  var midazolamTxt = midazolam ? ' + Midazolam ' + midazolam : '';
   var texto =
-    'Fentanil ' + fentanil + midazolam + ' + Propofol titulado IV.<br>' +
+    'Fentanil ' + fentanil + midazolamTxt + ' + Propofol titulado IV.<br>' +
     'Suplementação de O2 por catéter nasal a 3 L/min.<br>' +
     'Monitorização de oximetria de pulso e PNI.';
   appendToSortable('sortable-sedacao', createCheckboxDiv(texto, 'sedacao'));
@@ -1027,6 +1065,7 @@ function _coletarSecao(containerId, sep) {
   if (!el) return '';
   var texto = '';
   el.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+    if (!cb.value) return;
     texto += cb.value + sep;
   });
   return texto;
@@ -1052,15 +1091,31 @@ function montarLaudo() {
     });
   }
 
-  var isGeral = _isChecked('geral');
-  var isMI    = _isChecked('checkboxmi') ||
-                !!(document.querySelector('input[name="MI"]:checked'));
+  var isGeral       = _isChecked('geral');
+  var isMI          = _isChecked('checkboxmi') ||
+                      !!(document.querySelector('input[name="MI"]:checked'));
+  var isHipoCardia  = _isChecked('checkboxhipocardia');
 
-  if (deslocadaFound) estText = estText.replace(/ajustado/g, 'alargado em relação');
+  if (deslocadaFound || isHipoCardia) estText = estText.replace(/ajustado/g, 'alargado em relação');
+
+  var isFundop        = _isChecked('checkbox23');
+  var isFundopMigrada = _isChecked('checkboxfundopmig');
+  if (isFundop) {
+    estText = estText.replace(
+      /Hiato diafragmático ajustado ao aparelho, quando visto em retroversão\./g,
+      'À retroversão, nota-se fundoplicatura tópica e continente.'
+    );
+  }
+  if (isFundopMigrada) {
+    estText = estText.replace(
+      /Hiato diafragmático (?:ajustado|alargado em relação) ao aparelho, quando visto em retroversão\./g,
+      'À retroversão, nota-se alargamento do hiato e fundoplicatura com deslocamento cranial.'
+    );
+  }
+
   if (isMI) {
     estText = estText
-      .replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,')
-      .replace(/<br><br>/, '');
+      .replace(/reduzido/g, 'reduzido, além de focos de provável metaplasia intestinal,');
   }
 
   if (isMI) {

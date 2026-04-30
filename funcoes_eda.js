@@ -717,9 +717,11 @@ async function carregarDados() {
   if (_modoVisitante) {
     try {
       var vDoc = await _firestore.collection('visitante').doc('publico').get();
-      var vDados = (vDoc.exists && vDoc.data() && vDoc.data().db)
-        ? vDoc.data().db
-        : (typeof DB_PADRAO !== 'undefined' ? DB_PADRAO : {});
+      var vData = (vDoc.exists && vDoc.data()) || {};
+      // Prefere o campo novo `dbEDA`; cai para o legado `db` se o
+      // doc ainda não foi migrado pelo admin.
+      var vDados = vData.dbEDA || vData.db
+        || (typeof DB_PADRAO !== 'undefined' ? DB_PADRAO : {});
       inicializar(vDados);
       mostrarToast('&#128100; Modo visitante \u2014 somente leitura', '#1a3a5a', 3500);
     } catch (e) {
@@ -732,17 +734,22 @@ async function carregarDados() {
 
   try {
     var doc = await _firestore.collection('users').doc(_user.uid).get();
+    var d = doc.exists ? (doc.data() || {}) : {};
     var dados;
-    if (doc.exists && doc.data().db) {
-      dados = doc.data().db;
+    // Prefere o campo unificado `dbEDA` (compartilhado com o
+    // importador). Cai para `db` em contas legadas — o próximo
+    // save grava em `dbEDA` e a partir daí ambos ficam alinhados.
+    if (d.dbEDA) {
+      dados = d.dbEDA;
+    } else if (d.db) {
+      dados = d.db;
     } else {
-      // Primeiro acesso — inicializa com o template padrão
       dados = (typeof DB_PADRAO !== 'undefined') ? DB_PADRAO : {};
       await _firestore.collection('users').doc(_user.uid).set({
-        db:       dados,
+        dbEDA:    dados,
         email:    _user.email,
         criadoEm: firebase.firestore.FieldValue.serverTimestamp()
-      });
+      }, { merge: true });
     }
     inicializar(dados);
     mostrarToast('&#10003; Dados carregados.', '#1a3a1a', 2000);
@@ -766,7 +773,7 @@ async function salvarDados() {
   try {
     var db = coletarDB({ semDinamicos: true });
     await _firestore.collection('users').doc(_user.uid).set(
-      { db: db, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() },
+      { dbEDA: db, atualizadoEm: firebase.firestore.FieldValue.serverTimestamp() },
       { merge: true }
     );
     Object.assign(_DB, db);
@@ -774,9 +781,13 @@ async function salvarDados() {
     atualizarIndicadorSalvo();
     mostrarToast('&#10003; Salvo!', '#1a3a1a', 2500);
 
-    // Sincroniza banco público para visitantes
+    // Sincroniza banco público para visitantes.
+    // Usa { merge: true } para não apagar dbColono escrito pelo
+    // app irmão. Grava em dbEDA (campo esperado pelo importador);
+    // o legado `db` é deixado em paz nos docs já existentes.
     if (_user.email === 'ekmogawa@gmail.com') {
-      _firestore.collection('visitante').doc('publico').set({ db: db })
+      _firestore.collection('visitante').doc('publico')
+        .set({ dbEDA: db }, { merge: true })
         .catch(function (e) { console.warn('[visitante sync]', e); });
     }
   } catch (e) {

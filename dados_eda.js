@@ -1,26 +1,9 @@
 // ============================================================
 // BANCO DE DADOS — Gerar Laudo EDA
-// Salvo em: 01/05/2026, 21:51:33
+// Salvo em: 13/04/2026, 14:20:44
 // ============================================================
 
 var DB_PADRAO = {
-  "sedacaoSelects": {
-    "fentanil": [
-      "50mcg",
-      "75mcg",
-      "100mcg",
-      ""
-    ],
-    "midazolam": [
-      "",
-      "1mg",
-      "2mg",
-      "2,5mg",
-      "3mg",
-      "4mg",
-      "5mg"
-    ]
-  },
   "equipamento": [
     {
       "nome": "EG-760Z",
@@ -66,6 +49,23 @@ var DB_PADRAO = {
       "valor": "Paciente sob anestesia geral."
     }
   ],
+  "sedacaoSelects": {
+    "fentanil": [
+      "50mcg",
+      "75mcg",
+      "100mcg",
+      ""
+    ],
+    "midazolam": [
+      "",
+      "1mg",
+      "2mg",
+      "2,5mg",
+      "3mg",
+      "4mg",
+      "5mg"
+    ]
+  },
   "esofago": [
     {
       "nome": "Normal",
@@ -371,10 +371,6 @@ var DB_PADRAO = {
       "valor": "- Esofagite erosiva distal em resolução."
     },
     {
-      "nome": "Hipotonia de cárdia",
-      "valor": "- Hipotonia de cárdia."
-    },
-    {
       "nome": "HHD",
       "id": "checkbox35",
       "valor": "- Hérnia hiatal por deslizamento."
@@ -479,10 +475,6 @@ var DB_PADRAO = {
       "nome": "Fundop",
       "id": "checkbox51",
       "valor": "- Status pós-operatório de fundoplicatura gástrica."
-    },
-    {
-      "nome": "Fundop migrada",
-      "valor": "- Fundoplicatura migrada."
     },
     {
       "nome": "Gastrect Y",

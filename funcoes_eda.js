@@ -180,7 +180,7 @@ function popularCheckboxSection(containerId, itens) {
       return;
     }
     var div = document.createElement('div');
-    div.className = 'item' + (item.valor ? '' : ' item-modificador');
+    div.className = 'item' + ((!item.valor || item.valor.indexOf('|||') >= 0) ? ' item-modificador' : '');
     div.setAttribute('data-populated', '1');
     var idPadrao = item.nome + '-' + containerId;
     var id = item.id || idPadrao;
@@ -451,20 +451,40 @@ function inicializarSincronizacaoCheckboxes() {
     var name = e.target.name, checked = e.target.checked;
     if (name === 'Normal') return;
 
-    document.querySelectorAll('input[type="checkbox"][name="' + name + '"]').forEach(function (cb) {
-      if (cb !== e.target) cb.checked = checked;
-    });
-
-    if (name.includes('+')) {
-      var partes = name.split('+');
-      document.querySelectorAll('#Conclusão input[name="' + partes[0] + '"]').forEach(function (cb) {
-        cb.checked = true;
+    // Para modificadores: marcar apenas na conclusão se existir
+    if (e.target.value === '' || e.target.value.includes('|||')) {
+      if (checked) {
+        var concCb = document.querySelector('#Conclusão input[name="' + name + '"]');
+        if (concCb) concCb.checked = true;
+      }
+    } else {
+      // Sincronização normal para itens normais
+      document.querySelectorAll('input[type="checkbox"][name="' + name + '"]').forEach(function (cb) {
+        if (cb !== e.target) cb.checked = checked;
       });
-      if (partes[1]) {
-        document.querySelectorAll('#Conclusão input[name$="' + partes[1] + '"]').forEach(function (cb) {
+
+      if (name.includes('+')) {
+        var partes = name.split('+');
+        document.querySelectorAll('#Conclusão input[name="' + partes[0] + '"]').forEach(function (cb) {
           cb.checked = true;
         });
+        if (partes[1]) {
+          document.querySelectorAll('#Conclusão input[name$="' + partes[1] + '"]').forEach(function (cb) {
+            cb.checked = true;
+          });
+        }
       }
+    }
+
+    // Para modificadores: desmarcar outros modificadores na mesma seção
+    if (checked && (e.target.value === '' || e.target.value.includes('|||'))) {
+      var secao = e.target.closest('.secao').id;
+      var secaoDiv = document.getElementById(secao);
+      secaoDiv.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+        if (cb !== e.target && (cb.value === '' || cb.value.includes('|||'))) {
+          cb.checked = false;
+        }
+      });
     }
   });
 }
@@ -511,6 +531,19 @@ function abrirPopup(id) {
   document.getElementById('backdrop').classList.add('show');
 }
 
+function toggleModifierFields(type) {
+  var modifier = document.getElementById('modifier-fields');
+  var normal   = document.getElementById('checkbox-value-group');
+  if (!modifier || !normal) return;
+  if (type === 'modificador') {
+    modifier.style.display = 'block';
+    normal.style.display   = 'none';
+  } else {
+    modifier.style.display = 'none';
+    normal.style.display   = 'block';
+  }
+}
+
 function showPopup() {
   if (_modoVisitante) {
     mostrarToast('&#128100; Modo visitante \u2014 edi\u00e7\u00e3o n\u00e3o permitida.', '#7a4000', 4000);
@@ -547,23 +580,83 @@ function showPopup() {
     // Campo valor
     var valorLabel = document.createElement('strong');
     valorLabel.textContent = 'Texto da entrada:';
-    var valorTa = document.createElement('textarea');
-    valorTa.className = 'edit-value-input';
-    valorTa.style.cssText = 'display:block;height:60px;width:90%;margin-top:4px;';
-    valorTa.value = cb.value;
-    valorTa.dataset.targetId = cb.id;
+    var wrapper = cb.closest('.item');
+    var isModificador = wrapper ? wrapper.classList.contains('item-modificador') : false;
 
-    nomeInput.addEventListener('input', function () {
-      updateEverything(this.dataset.targetId, this.value, this.dataset.suffix, this, valorTa);
-    });
-    valorTa.addEventListener('input', function () {
-      updateOnlyValue(this.dataset.targetId, this.value);
-    });
+    if (isModificador) {
+      var findValue, replaceValue;
+      if (cb.value === '') {
+        // Valores padrão para modificadores existentes
+        if (cb.id === 'checkboxhipocardia') {
+          findValue = 'ajustado';
+          replaceValue = 'alargado em relação';
+        } else if (cb.id === 'checkboxmi') {
+          findValue = 'reduzido';
+          replaceValue = 'reduzido, além de focos de provável metaplasia intestinal,';
+        } else if (cb.id === 'checkbox23') {
+          findValue = 'Hiato diafragmático ajustado ao aparelho, quando visto em retroversão.';
+          replaceValue = 'À retroversão, nota-se fundoplicatura tópica e continente.';
+        } else if (cb.id === 'checkboxfundopmig') {
+          findValue = 'Hiato diafragmático ajustado ao aparelho, quando visto em retroversão.';
+          replaceValue = 'À retroversão, nota-se alargamento do hiato e fundoplicatura com deslocamento cranial.';
+        } else {
+          findValue = '';
+          replaceValue = '';
+        }
+      } else {
+        var parts = cb.value.split('|||');
+        findValue = (parts[0] || '').replace(/<br\s*\/?>/gi, '\n');
+        replaceValue = parts.slice(1).join('|||').replace(/<br\s*\/?>/gi, '\n');
+      }
 
-    group.appendChild(nomeLabel);
-    group.appendChild(nomeInput);
-    group.appendChild(valorLabel);
-    group.appendChild(valorTa);
+      var findLabel = document.createElement('strong');
+      findLabel.textContent = 'Texto a ser substituído:';
+      var findTa = document.createElement('textarea');
+      findTa.className = 'edit-value-input';
+      findTa.style.cssText = 'display:block;height:60px;width:90%;margin-top:4px;';
+      findTa.value = findValue;
+      findTa.dataset.targetId = cb.id;
+
+      var replaceLabel = document.createElement('strong');
+      replaceLabel.textContent = 'Texto final:';
+      var replaceTa = document.createElement('textarea');
+      replaceTa.className = 'edit-value-input';
+      replaceTa.style.cssText = 'display:block;height:60px;width:90%;margin-top:4px;';
+      replaceTa.value = replaceValue;
+      replaceTa.dataset.targetId = cb.id;
+
+      findTa.addEventListener('input', function () {
+        updateModifierValue(this.dataset.targetId, this.value.replace(/\n/g, '<br>'), replaceTa.value.replace(/\n/g, '<br>'));
+      });
+      replaceTa.addEventListener('input', function () {
+        updateModifierValue(this.dataset.targetId, findTa.value.replace(/\n/g, '<br>'), this.value.replace(/\n/g, '<br>'));
+      });
+
+      group.appendChild(nomeLabel);
+      group.appendChild(nomeInput);
+      group.appendChild(findLabel);
+      group.appendChild(findTa);
+      group.appendChild(replaceLabel);
+      group.appendChild(replaceTa);
+    } else {
+      var valorTa = document.createElement('textarea');
+      valorTa.className = 'edit-value-input';
+      valorTa.style.cssText = 'display:block;height:60px;width:90%;margin-top:4px;';
+      valorTa.value = cb.value;
+      valorTa.dataset.targetId = cb.id;
+
+      nomeInput.addEventListener('input', function () {
+        updateEverything(this.dataset.targetId, this.value, this.dataset.suffix, this, valorTa);
+      });
+      valorTa.addEventListener('input', function () {
+        updateOnlyValue(this.dataset.targetId, this.value);
+      });
+
+      group.appendChild(nomeLabel);
+      group.appendChild(nomeInput);
+      group.appendChild(valorLabel);
+      group.appendChild(valorTa);
+    }
     container.appendChild(group);
   });
 
@@ -597,6 +690,13 @@ function updateOnlyValue(id, newValue) {
   agendarAutoSave();
 }
 
+function updateModifierValue(id, findValue, replaceValue) {
+  var cb = document.getElementById(id);
+  if (!cb) return;
+  cb.value = (findValue || '') + '|||' + (replaceValue || '');
+  agendarAutoSave();
+}
+
 function deleteCheckedCheckboxes() {
   if (_modoVisitante) {
     mostrarToast('&#128100; Modo visitante \u2014 exclus\u00e3o n\u00e3o permitida.', '#7a4000', 4000);
@@ -623,6 +723,7 @@ function createCheckbox() {
     return;
   }
   var nome      = document.getElementById('checkbox-name').value.trim();
+  var tipo      = document.getElementById('checkbox-type').value;
   var valor     = document.getElementById('checkbox-value').value.replace(/\n/g, '<br>');
   var sectionId = document.getElementById('section-select').value;
 
@@ -630,9 +731,21 @@ function createCheckbox() {
 
   var section = document.getElementById(sectionId);
   var div = document.createElement('div');
-  div.className = 'item';
   div.setAttribute('data-populated', '1');
 
+  if (tipo === 'modificador') {
+    var findValue    = document.getElementById('checkbox-find').value.trim();
+    var replaceValue = document.getElementById('checkbox-replace').value.replace(/\n/g, '<br>');
+    if (!findValue || !replaceValue) {
+      mostrarToast('&#9888; Digite texto a ser substituído e texto final para o modificador.', '#7a4000');
+      return;
+    }
+    valor = findValue + '|||' + replaceValue;
+    div.className = 'item item-modificador';
+  } else {
+    div.className = 'item';
+  }
+  
   var cb = document.createElement('input');
   cb.type = 'checkbox'; cb.name = nome; cb.value = valor;
   cb.id   = nome + '-' + sectionId;
@@ -645,8 +758,12 @@ function createCheckbox() {
 
   document.getElementById('create-popup').style.display = 'none';
   document.getElementById('backdrop').classList.remove('show');
-  document.getElementById('checkbox-name').value  = '';
-  document.getElementById('checkbox-value').value = '';
+  document.getElementById('checkbox-name').value      = '';
+  document.getElementById('checkbox-value').value     = '';
+  document.getElementById('checkbox-find').value      = '';
+  document.getElementById('checkbox-replace').value   = '';
+  document.getElementById('checkbox-type').value      = 'normal';
+  toggleModifierFields('normal');
 
   agendarAutoSave();
   mostrarToast(_autoSaveAtivo ? '&#10003; Item criado! Salvando\u2026' : '&#10003; Item criado!');
@@ -797,116 +914,6 @@ async function salvarDados() {
 }
 
 // ----------------------------------------------------------
-// BACKUP GITHUB (legado — mantido para exportação)
-// ----------------------------------------------------------
-
-async function salvarBackupGitHub() {
-  if (_modoVisitante) {
-    mostrarToast('&#128100; Modo visitante \u2014 backup n\u00e3o permitido.', '#7a4000', 4000);
-    return;
-  }
-  var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
-  var token = sessionStorage.getItem('colono_github_token') || c.token;
-
-  if (c.tokenCriptografado && !sessionStorage.getItem('colono_github_token')) {
-    await _inicializarTokenGitHub();
-    if (!sessionStorage.getItem('colono_github_token')) return;
-    token = sessionStorage.getItem('colono_github_token');
-  }
-  if (!c.owner || !c.repo || !token) {
-    mostrarToast('&#9888; config.js não configurado para backup GitHub.', '#7a4000', 6000);
-    return;
-  }
-
-  var branch  = c.branch || 'main';
-  var path    = c.path   || 'dados_eda.js';
-  var apiBase = 'https://api.github.com/repos/' + c.owner + '/' + c.repo + '/contents/' + path;
-  var headers = {
-    'Authorization': 'token ' + token,
-    'Accept':        'application/vnd.github+json',
-    'Content-Type':  'application/json'
-  };
-
-  mostrarToast('&#128260; Enviando backup para GitHub\u2026', '#1a2e3a', 10000);
-  try {
-    var getResp = await fetch(apiBase + '?ref=' + encodeURIComponent(branch), { headers: headers });
-    if (!getResp.ok && getResp.status !== 404) throw new Error('Erro ao ler arquivo: HTTP ' + getResp.status);
-    var getSha;
-    if (getResp.ok) {
-      var getData = await getResp.json().catch(function () { return {}; });
-      getSha = getData.sha;
-    }
-    var dbAtual   = coletarDB({ semDinamicos: true });
-    var conteudo  = montarConteudoJS(dbAtual);
-    var b64       = btoa(unescape(encodeURIComponent(conteudo)));
-    var body = { message: 'Backup via EDA \u2014 ' + new Date().toLocaleString('pt-BR'), content: b64, branch: branch };
-    if (getSha) body.sha = getSha;
-
-    var putResp = await fetch(apiBase, { method: 'PUT', headers: headers, body: JSON.stringify(body) });
-    if (!putResp.ok) {
-      var errPut = await putResp.json().catch(function () { return {}; });
-      var msg = errPut.message || 'HTTP ' + putResp.status;
-      if (putResp.status === 401) msg = 'Token inválido (401).';
-      if (putResp.status === 403) msg = 'Sem permissão de escrita (403).';
-      if (putResp.status === 409) msg = 'Conflito (409). Recarregue e tente novamente.';
-      throw new Error(msg);
-    }
-    mostrarToast('&#10003; Backup salvo no GitHub!', '#1a3a1a', 4000);
-  } catch (e) {
-    mostrarToast('&#10060; ' + e.message, '#7a1a1a', 8000);
-    console.error('[salvarBackupGitHub]', e);
-  }
-}
-
-async function _inicializarTokenGitHub() {
-  var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
-  if (!c.tokenCriptografado) return;
-  if (sessionStorage.getItem('colono_github_token')) return;
-  var tentativas = 0;
-  while (tentativas < 3) {
-    var msg   = tentativas === 0 ? '&#128272; Senha para backup GitHub:' : '&#10060; Senha incorreta. Tentativa ' + (tentativas + 1) + '/3:';
-    var senha = await _pedirSenhaGitHub(msg);
-    if (senha === null) break;
-    var token = await _descriptografarToken(senha);
-    if (token) { sessionStorage.setItem('colono_github_token', token); return; }
-    tentativas++;
-  }
-}
-
-function _pedirSenhaGitHub(msg) {
-  return new Promise(function (resolve) {
-    var overlay = document.getElementById('senha-overlay');
-    var msgEl   = document.getElementById('senha-msg');
-    var input   = document.getElementById('senha-input');
-    var btnOk   = document.getElementById('senha-ok');
-    var btnCanc = document.getElementById('senha-cancelar');
-    msgEl.textContent = msg; input.value = ''; overlay.classList.add('show'); input.focus();
-    function fechar(v) {
-      overlay.classList.remove('show');
-      btnOk.removeEventListener('click', onOk); btnCanc.removeEventListener('click', onCanc);
-      input.removeEventListener('keydown', onKey); resolve(v);
-    }
-    function onOk()   { fechar(input.value); }
-    function onCanc() { fechar(null); }
-    function onKey(e) { if (e.key === 'Enter') fechar(input.value); if (e.key === 'Escape') fechar(null); }
-    btnOk.addEventListener('click', onOk); btnCanc.addEventListener('click', onCanc);
-    input.addEventListener('keydown', onKey);
-  });
-}
-
-async function _descriptografarToken(senha) {
-  try {
-    var c = (typeof GITHUB_CONFIG !== 'undefined') ? GITHUB_CONFIG : {};
-    var fromB64 = function (b64) { return Uint8Array.from(atob(b64), function (ch) { return ch.charCodeAt(0); }); };
-    var keyMat  = await crypto.subtle.importKey('raw', new TextEncoder().encode(senha), 'PBKDF2', false, ['deriveKey']);
-    var key     = await crypto.subtle.deriveKey(
-      { name: 'PBKDF2', salt: fromB64(c.salt), iterations: 200000, hash: 'SHA-256' },
-      keyMat, { name: 'AES-GCM', length: 256 }, false, ['decrypt']);
-    var dec = await crypto.subtle.decrypt({ name: 'AES-GCM', iv: fromB64(c.iv) }, key, fromB64(c.tokenCriptografado));
-    return new TextDecoder().decode(dec);
-  } catch (e) { return null; }
-}
-
 // ----------------------------------------------------------
 // AUTH — UI
 // ----------------------------------------------------------
@@ -1061,12 +1068,16 @@ function _isChecked(id) {
   return !!(el && el.checked);
 }
 
+function escapeRegExp(string) {
+  return string.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+}
+
 function _coletarSecao(containerId, sep) {
   var el = document.getElementById(containerId);
   if (!el) return '';
   var texto = '';
   el.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
-    if (!cb.value) return;
+    if (!cb.value || cb.value.includes('|||')) return;
     texto += cb.value + sep;
   });
   return texto;
@@ -1081,14 +1092,91 @@ function montarLaudo() {
   var outText  = _coletarSecao('Outros',      '<br><br>');
   var concText = _coletarSecao('Conclusão',   '<br>');
 
+  // Aplicar substituições de modificadores em cada seção
+  var estAjustado = document.getElementById('Estômago');
+  if (estAjustado) {
+    estAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        estText = estText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
+  var duoAjustado = document.getElementById('Duodeno');
+  if (duoAjustado) {
+    duoAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        duoText = duoText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
+  var esfAjustado = document.getElementById('Esôfago');
+  if (esfAjustado) {
+    esfAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        estText = estText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
+  var jejAjustado = document.getElementById('Jejuno');
+  if (jejAjustado) {
+    jejAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        jejText = jejText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
+  // Aplicar substituições de modificadores na Conclusão
+  var concAjustado = document.getElementById('Conclusão');
+  if (concAjustado) {
+    concAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        concText = concText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
+  // Aplicar substituições de modificadores em Outros
+  var outAjustado = document.getElementById('Outros');
+  if (outAjustado) {
+    outAjustado.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
+      if (cb.value && cb.value.includes('|||')) {
+        var partes = cb.value.split('|||');
+        var find = partes[0];
+        var replace = partes[1];
+        outText = outText.replace(new RegExp(escapeRegExp(find), 'g'), replace);
+      }
+    });
+  }
+
   var esfText        = '';
   var deslocadaFound = false;
   var esfEl = document.getElementById('Esôfago');
   if (esfEl) {
     esfEl.querySelectorAll('input[type="checkbox"]:checked').forEach(function (cb) {
       var val = cb.value;
-      if (val.includes('deslocada')) { val = val.replace('ajustado', 'alargado em relação'); deslocadaFound = true; }
-      esfText += val + '<br><br>';
+      if (val && !val.includes('|||')) {
+        if (val.includes('deslocada')) { val = val.replace('ajustado', 'alargado em relação'); deslocadaFound = true; }
+        esfText += val + '<br><br>';
+      }
     });
   }
 
@@ -1186,9 +1274,48 @@ function copiarPorSelecao(output) {
 // ----------------------------------------------------------
 
 function copiarConteudo() {
+  salvarUltimoLaudo();
   _copiarSaida(document.getElementById('output'), 12, '&#128196; Texto copiado!');
 }
 
 function copiarFormatado() {
+  salvarUltimoLaudo();
   _copiarSaida(document.getElementById('output'), 11, '&#128424; Copiado em Arial 11!');
 }
+
+function toggleFormat(command) {
+  var output = document.getElementById('output');
+  if (!output) return;
+  output.focus();
+  document.execCommand(command);
+  output.focus();
+}
+
+function applyFont(font) {
+  document.execCommand('fontName', false, font);
+}
+
+function applySize(size) {
+  var sizes = ['8pt', '10pt', '12pt', '14pt', '18pt', '24pt'];
+  document.execCommand('fontSize', false, size);
+  var output = document.getElementById('output');
+  if (!output) return;
+  var fonts = output.querySelectorAll('font[size="' + size + '"]');
+  fonts.forEach(function (font) {
+    font.removeAttribute('size');
+    font.style.fontSize = sizes[size - 1] || '12pt';
+  });
+}
+
+function applyBold() {
+  toggleFormat('bold');
+}
+
+function applyItalic() {
+  toggleFormat('italic');
+}
+
+function applyUnderline() {
+  toggleFormat('underline');
+}
+

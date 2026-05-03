@@ -396,7 +396,8 @@ function toggleMenuSalvar(ev) {
   if (m.classList.contains('show')) { m.classList.remove('show'); return; }
   if (ev && ev.currentTarget) {
     var r = ev.currentTarget.getBoundingClientRect();
-    m.style.top = r.top + 'px';
+    m.style.top = r.bottom + 'px';
+    m.style.left = r.left + 'px';
   }
   refrescarMenuSalvar();
   m.classList.add('show');

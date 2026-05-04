@@ -198,7 +198,22 @@
       background: var(--accent); color: #fff;
     }
 
-    /* Caixa de texto lateral (output sticky 2-col) */
+    /* Sidebar desaparece quando lateral ativa */
+    body.lateral-on .sidebar { display: none; }
+    body.lateral-on { padding-left: 0; }
+
+    /* Toolbar fixa no topo (sticky, abaixo do header) */
+    body.lateral-on .toolbar {
+      display: flex;
+      position: sticky;
+      top: 50px;
+      z-index: 180;
+      background: var(--panel);
+      border-bottom: 1px solid var(--border);
+      box-shadow: var(--shadow);
+    }
+
+    /* Caixa de texto lateral em grid 2 colunas */
     body.lateral-on .wrap {
       max-width: none;
       display: grid;
@@ -206,22 +221,6 @@
       grid-template-rows: auto 1fr;
       gap: 16px;
       align-items: start;
-      padding-top: 60px;
-    }
-    /* Sidebar desaparece quando lateral ativa */
-    body.lateral-on .sidebar { display: none; }
-    body.lateral-on { padding-left: 0; }
-    /* Toolbar fixa no topo quando lateral ativa */
-    body.lateral-on .toolbar {
-      display: flex;
-      position: fixed;
-      top: 50px;
-      left: 0;
-      right: 0;
-      z-index: 80;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow);
     }
     /* Janelas mais estreitas: proporção 2/3 seções e 1/3 caixa */
     @media (max-width: 1900px) {
@@ -264,23 +263,45 @@
     }
     body.lateral-on .wrap > .output-wrap {
       position: sticky;
-      top: 12px;
+      top: calc(50px + 42px + 12px);
       margin-top: 0;
       max-height: calc(100vh - 24px);
       display: flex;
       flex-direction: column;
       grid-row: 1 / span 2;
+      overflow: hidden;
     }
     body.lateral-on .wrap > footer {
       grid-column: 1 / 2;
       grid-row: 2;
       align-self: start;
     }
-    body.lateral-on .wrap > .output-wrap #output {
+    body.lateral-on .wrap > .output-wrap .output-scroll {
       flex: 1 1 auto;
+      min-height: 0;
       overflow-y: auto;
+      position: relative;
+    }
+    body.lateral-on .wrap > .output-wrap .text-toolbar {
+      position: sticky;
+      top: 0;
+      z-index: 1;
+    }
+    body.lateral-on .wrap > .output-wrap #output {
+      min-height: 120px;
     }
     body.lateral-on .output-bar { display: none; }
+
+    /* Barra inferior na caixa de texto — visível apenas quando lateral ativa */
+    .output-bottom-bar { display: none; }
+    body.lateral-on .output-bottom-bar {
+      display: flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 14px;
+      background: var(--row-alt);
+      border-top: 1px solid var(--border);
+    }
     .tsep { width:1px; height:20px; background:var(--border2); margin:0 3px; }
 
     /* ── BUTTONS ── */
@@ -497,7 +518,7 @@
     .popup-footer { display: flex; gap: 7px; margin-top: 14px; flex-wrap: wrap; }
 
     /* ── OUTPUT ── */
-    .output-wrap { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); overflow: hidden; }
+    .output-wrap { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
     .output-bar { background: var(--row-alt); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap; }
     .text-toolbar { display: flex; align-items: center; gap: 4px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border2); }
     .text-toolbar select { font-size: 12px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; }
@@ -656,6 +677,7 @@
   <button onclick="salvarDados(); fecharMenuSalvar()">💾 Salvar agora</button>
   <button onclick="toggleAutoSave(); refrescarMenuSalvar()">🔄 Auto-save <span class="sb-toggle-state" id="sb-state-autosave">OFF</span></button>
   <button onclick="window.open('https://ekmogawa.github.io/Gerar-Laudo-Importador/?tipo=eda', '_blank', 'noopener'); fecharMenuSalvar()">📥 Importar laudos Word</button>
+  <button onclick="abrirPopupAdmin(); fecharMenuSalvar()" id="btn-admin-codigos" style="display:none">🔑 Código de Acesso</button>
 </div>
 
 <header class="app-header">
@@ -668,8 +690,8 @@
 
 <!-- TOOLBAR (legacy — visível só no mobile) -->
 <div class="toolbar">
-  <button class="btn-ghost" onclick="toggleCaixaLateral(); refrescarMenuSalvar()" title="Caixa de texto lateral">📐 Caixa Lateral</button>
   <button class="btn-save"  onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
+  <button class="btn-ghost" onclick="toggleCaixaLateral(); refrescarMenuSalvar()" title="Caixa de texto lateral">📐 Caixa Lateral</button>
   <button class="btn-ghost" onclick="desfazer()" title="Ctrl+Z">↶ Desfazer</button>
   <button class="btn-ghost" onclick="refazer()" title="Ctrl+Y">↷ Refazer</button>
   <button class="btn-ghost" onclick="recuperarUltimoLaudo()">↺ Último Laudo</button>
@@ -731,6 +753,26 @@
   </div>
 </div>
 
+
+<!-- POPUP ADMIN — gerenciar códigos de acesso -->
+<div class="popup" id="admin-popup">
+  <h3>🔑 Gerenciar Códigos de Acesso</h3>
+  <p style="font-size:13px;color:var(--ink3);margin-bottom:14px;">
+    Crie códigos de acesso para convidar novos usuários. Cada código só pode ser usado uma vez.
+  </p>
+  <label for="admin-codigo-novo">Novo código</label>
+  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
+    <input type="text" id="admin-codigo-novo" placeholder="Ex: CONVITE123" style="text-transform:uppercase;flex:1;">
+    <button class="btn-primary" onclick="criarCodigoAdmin()">🔑 Criar</button>
+  </div>
+  <label>Códigos existentes</label>
+  <div id="admin-lista-codigos" style="max-height:300px;overflow-y:auto;border:1px solid var(--border2);border-radius:6px;padding:8px;">
+    <p style="color:var(--ink3);font-size:13px;padding:8px;text-align:center;">Carregando...</p>
+  </div>
+  <div class="popup-footer" style="margin-top:12px;">
+    <button class="btn-ghost" onclick="fecharPopupAdmin()">Fechar</button>
+  </div>
+</div>
 
 <div class="wrap">
   <div class="main-col">
@@ -822,26 +864,33 @@
       <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
       <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
     </div>
-    <div class="text-toolbar">
-      <select onchange="applyFont(this.value)">
-        <option value="Arial">Arial</option>
-        <option value="Times New Roman">Times</option>
-        <option value="'Courier New'">Courier</option>
-        <option value="Georgia">Georgia</option>
-      </select>
-      <select onchange="applySize(this.value)">
-        <option value="1">8pt</option>
-        <option value="2">10pt</option>
-        <option value="3" selected>12pt</option>
-        <option value="4">14pt</option>
-        <option value="5">18pt</option>
-        <option value="6">24pt</option>
-      </select>
-      <button onclick="applyBold()" title="Negrito"><b>B</b></button>
-      <button onclick="applyItalic()" title="Itálico"><i>I</i></button>
-      <button onclick="applyUnderline()" title="Sublinhado"><u>U</u></button>
+    <div class="output-scroll">
+      <div class="text-toolbar">
+        <select onchange="applyFont(this.value)">
+          <option value="Arial">Arial</option>
+          <option value="Times New Roman">Times</option>
+          <option value="'Courier New'">Courier</option>
+          <option value="Georgia">Georgia</option>
+        </select>
+        <select onchange="applySize(this.value)">
+          <option value="1">8pt</option>
+          <option value="2">10pt</option>
+          <option value="3" selected>12pt</option>
+          <option value="4">14pt</option>
+          <option value="5">18pt</option>
+          <option value="6">24pt</option>
+        </select>
+        <button onclick="applyBold()" title="Negrito"><b>B</b></button>
+        <button onclick="applyItalic()" title="Itálico"><i>I</i></button>
+        <button onclick="applyUnderline()" title="Sublinhado"><u>U</u></button>
+      </div>
+      <div id="output" contenteditable="true"></div>
     </div>
-    <div id="output" contenteditable="true"></div>
+    <div class="output-bottom-bar">
+      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
+      <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
+      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
+    </div>
   </div>
 
   <footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>

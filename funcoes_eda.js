@@ -11,7 +11,7 @@ var _auth      = null;   // firebase.auth()
 var _firestore = null;   // firebase.firestore()
 var _user      = null;   // usuário autenticado atual
 var _modoVisitante  = false;
-var _CADASTRO_ABERTO = false; // mude para true para reabrir o cadastro
+var _CADASTRO_ABERTO = true; // cadastro reativado
 
 // Entrada para a versão gratuita (free.html) — sem Firebase
 function inicializarLivre() {
@@ -60,17 +60,189 @@ function inicializarFirebase() {
         ocultarModalAuth();
         atualizarStatusUsuario();
         carregarDados();
+        // Mostrar botão admin apenas para o administrador
+        var btnAdmin = document.getElementById('btn-admin-codigos');
+        if (btnAdmin) {
+          btnAdmin.style.display = (user.email === 'ekmogawa@gmail.com') ? '' : 'none';
+        }
       } else {
         _modoVisitante = false;
         mostrarModalAuth();
         atualizarStatusUsuario();
         _limparDOM();
+        var btnAdmin = document.getElementById('btn-admin-codigos');
+        if (btnAdmin) btnAdmin.style.display = 'none';
       }
     });
 
   } catch (e) {
     console.error('[Firebase] Erro na inicialização:', e);
     mostrarToast('&#10060; Erro ao conectar ao Firebase: ' + e.message, '#7a1a1a', 10000);
+  }
+}
+
+// ----------------------------------------------------------
+// AUTH — UI
+// ----------------------------------------------------------
+
+function mostrarModalAuth() {
+  var overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.classList.add('show');
+}
+
+function ocultarModalAuth() {
+  var overlay = document.getElementById('auth-overlay');
+  if (overlay) overlay.classList.remove('show');
+}
+
+function mostrarTabAuth(tab) {
+  document.getElementById('form-entrar').style.display    = tab === 'entrar'    ? '' : 'none';
+  document.getElementById('form-cadastrar').style.display = tab === 'cadastrar' ? '' : 'none';
+  document.getElementById('tab-entrar').classList.toggle('active',    tab === 'entrar');
+  document.getElementById('tab-cadastrar').classList.toggle('active', tab === 'cadastrar');
+  document.getElementById('auth-erro').textContent = '';
+  document.getElementById(tab === 'entrar' ? 'auth-email' : 'cad-email').focus();
+}
+
+function _mostrarErroAuth(msg) {
+  var el = document.getElementById('auth-erro');
+  if (el) el.textContent = msg;
+}
+
+var _MSGS_AUTH = {
+  'auth/user-not-found':        'Usuário não encontrado.',
+  'auth/wrong-password':        'Senha incorreta.',
+  'auth/invalid-credential':    'E-mail ou senha incorretos.',
+  'auth/email-already-in-use':  'Este e-mail já está cadastrado.',
+  'auth/weak-password':         'A senha deve ter pelo menos 6 caracteres.',
+  'auth/invalid-email':         'E-mail inválido.',
+  'auth/network-request-failed':'Sem conexão. Verifique a internet.',
+  'auth/too-many-requests':     'Muitas tentativas. Aguarde alguns minutos.',
+  'auth/missing-password':      'Digite a senha.'
+};
+
+async function loginUsuario() {
+  var email = document.getElementById('auth-email').value.trim();
+  var senha = document.getElementById('auth-password').value;
+  if (!email || !senha) { _mostrarErroAuth('Preencha e-mail e senha.'); return; }
+  var btn = document.getElementById('btn-login');
+  btn.disabled = true;
+  try {
+    await _auth.signInWithEmailAndPassword(email, senha);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function registrarUsuario() {
+  if (!_CADASTRO_ABERTO) {
+    _mostrarErroAuth('Cadastro de novas contas está temporariamente suspenso.');
+    return;
+  }
+  var email  = document.getElementById('cad-email').value.trim();
+  var senha  = document.getElementById('cad-password').value;
+  var senha2 = document.getElementById('cad-password2').value;
+  var codigo = document.getElementById('cad-codigo').value.trim().toUpperCase();
+
+  if (!email || !senha || !codigo) { _mostrarErroAuth('Preencha todos os campos, incluindo o código de acesso.'); return; }
+  if (senha !== senha2)            { _mostrarErroAuth('As senhas não coincidem.'); return; }
+  if (senha.length < 6)            { _mostrarErroAuth('Mínimo de 6 caracteres na senha.'); return; }
+
+  var btn = document.getElementById('btn-cadastrar');
+  btn.disabled = true;
+
+  // 1. Validar o código no Firestore (leitura pública — precisa de regra adequada)
+  var codigoDoc;
+  try {
+    codigoDoc = await _firestore.collection('codigos').doc(codigo).get();
+  } catch (e) {
+    console.error('[registro] Erro ao ler código:', e);
+    btn.disabled = false;
+    if (e.code === 'permission-denied') {
+      _mostrarErroAuth('As regras do Firestore não permitem validar o código. O administrador precisa liberar leitura pública na coleção "codigos".');
+    } else {
+      _mostrarErroAuth('Erro de conexão ao validar o código. Tente novamente.');
+    }
+    return;
+  }
+
+  if (!codigoDoc.exists || codigoDoc.data().usado) {
+    _mostrarErroAuth('Código de acesso inválido ou já utilizado.');
+    btn.disabled = false;
+    return;
+  }
+
+  // 2. Criar a conta
+  try {
+    var cred = await _auth.createUserWithEmailAndPassword(email, senha);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+    btn.disabled = false;
+    return;
+  }
+
+  // 3. Marcar código como usado
+  try {
+    await _firestore.collection('codigos').doc(codigo).update({
+      usado:    true,
+      usadoPor: cred.user.uid,
+      usadoEm:  firebase.firestore.FieldValue.serverTimestamp()
+    });
+  } catch (e) {
+    console.warn('[registro] Conta criada mas falha ao marcar código:', e);
+    mostrarToast('&#9888; Conta criada, mas não foi possível marcar o código como usado.', '#7a5a1a', 5000);
+  } finally {
+    btn.disabled = false;
+  }
+}
+
+async function entrarComoVisitante() {
+  var btn = document.getElementById('btn-visitante');
+  if (btn) { btn.disabled = true; btn.textContent = 'Aguarde…'; }
+  try {
+    await _auth.signInAnonymously();
+  } catch (e) {
+    _mostrarErroAuth(
+      e.code === 'auth/operation-not-allowed'
+        ? 'Acesso como visitante não habilitado. Contate o administrador.'
+        : ('Erro: ' + (e.message || e))
+    );
+    if (btn) { btn.disabled = false; btn.textContent = '&#128100; Entrar como Visitante'; }
+  }
+}
+
+async function resetarSenha() {
+  var email = document.getElementById('auth-email').value.trim();
+  if (!email) { _mostrarErroAuth('Digite seu e-mail acima para redefinir a senha.'); return; }
+  try {
+    await _auth.sendPasswordResetEmail(email);
+    _mostrarErroAuth('');
+    mostrarToast('&#128231; E-mail de redefinição enviado!', '#1a3a1a', 5000);
+  } catch (e) {
+    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
+  }
+}
+
+async function sairUsuario() {
+  if (!confirm('Deseja sair?')) return;
+  await _auth.signOut();
+}
+
+function atualizarStatusUsuario() {
+  var el = document.getElementById('user-status');
+  if (!el) return;
+  if (_user && _modoVisitante) {
+    el.innerHTML =
+      '<span class="user-email" style="background:rgba(255,180,0,.18);border-color:rgba(255,180,0,.4);color:rgba(255,240,180,.95);">&#128100; Visitante</span>' +
+      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
+  } else if (_user) {
+    el.innerHTML =
+      '<span class="user-email">' + _user.email + '</span>' +
+      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
+  } else {
+    el.innerHTML = '';
   }
 }
 
@@ -915,153 +1087,9 @@ async function salvarDados() {
 
 // ----------------------------------------------------------
 // ----------------------------------------------------------
-// AUTH — UI
-// ----------------------------------------------------------
-
-function mostrarModalAuth() {
-  var overlay = document.getElementById('auth-overlay');
-  if (overlay) overlay.classList.add('show');
-}
-
-function ocultarModalAuth() {
-  var overlay = document.getElementById('auth-overlay');
-  if (overlay) overlay.classList.remove('show');
-}
-
-function mostrarTabAuth(tab) {
-  document.getElementById('form-entrar').style.display    = tab === 'entrar'    ? '' : 'none';
-  document.getElementById('form-cadastrar').style.display = tab === 'cadastrar' ? '' : 'none';
-  document.getElementById('tab-entrar').classList.toggle('active',    tab === 'entrar');
-  document.getElementById('tab-cadastrar').classList.toggle('active', tab === 'cadastrar');
-  document.getElementById('auth-erro').textContent = '';
-  document.getElementById(tab === 'entrar' ? 'auth-email' : 'cad-email').focus();
-}
-
-function _mostrarErroAuth(msg) {
-  var el = document.getElementById('auth-erro');
-  if (el) el.textContent = msg;
-}
-
-var _MSGS_AUTH = {
-  'auth/user-not-found':        'Usuário não encontrado.',
-  'auth/wrong-password':        'Senha incorreta.',
-  'auth/invalid-credential':    'E-mail ou senha incorretos.',
-  'auth/email-already-in-use':  'Este e-mail já está cadastrado.',
-  'auth/weak-password':         'A senha deve ter pelo menos 6 caracteres.',
-  'auth/invalid-email':         'E-mail inválido.',
-  'auth/network-request-failed':'Sem conexão. Verifique a internet.',
-  'auth/too-many-requests':     'Muitas tentativas. Aguarde alguns minutos.',
-  'auth/missing-password':      'Digite a senha.'
-};
-
-async function loginUsuario() {
-  var email = document.getElementById('auth-email').value.trim();
-  var senha = document.getElementById('auth-password').value;
-  if (!email || !senha) { _mostrarErroAuth('Preencha e-mail e senha.'); return; }
-  var btn = document.getElementById('btn-login');
-  btn.disabled = true;
-  try {
-    await _auth.signInWithEmailAndPassword(email, senha);
-  } catch (e) {
-    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function registrarUsuario() {
-  if (!_CADASTRO_ABERTO) {
-    _mostrarErroAuth('Cadastro de novas contas está temporariamente suspenso.');
-    return;
-  }
-  var email  = document.getElementById('cad-email').value.trim();
-  var senha  = document.getElementById('cad-password').value;
-  var senha2 = document.getElementById('cad-password2').value;
-  var codigo = document.getElementById('cad-codigo').value.trim().toUpperCase();
-
-  if (!email || !senha || !codigo) { _mostrarErroAuth('Preencha todos os campos, incluindo o código de acesso.'); return; }
-  if (senha !== senha2)            { _mostrarErroAuth('As senhas não coincidem.'); return; }
-  if (senha.length < 6)            { _mostrarErroAuth('Mínimo de 6 caracteres na senha.'); return; }
-
-  var btn = document.getElementById('btn-cadastrar');
-  btn.disabled = true;
-
-  try {
-    // 1. Verificar se o código existe e não foi usado
-    var codigoDoc = await _firestore.collection('codigos').doc(codigo).get();
-    if (!codigoDoc.exists || codigoDoc.data().usado) {
-      _mostrarErroAuth('Código de acesso inválido ou já utilizado.');
-      return;
-    }
-
-    // 2. Criar a conta
-    var cred = await _auth.createUserWithEmailAndPassword(email, senha);
-
-    // 3. Marcar código como usado
-    await _firestore.collection('codigos').doc(codigo).update({
-      usado:    true,
-      usadoPor: cred.user.uid,
-      usadoEm:  firebase.firestore.FieldValue.serverTimestamp()
-    });
-
-  } catch (e) {
-    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
-  } finally {
-    btn.disabled = false;
-  }
-}
-
-async function entrarComoVisitante() {
-  var btn = document.getElementById('btn-visitante');
-  if (btn) { btn.disabled = true; btn.textContent = 'Aguarde\u2026'; }
-  try {
-    await _auth.signInAnonymously();
-  } catch (e) {
-    _mostrarErroAuth(
-      e.code === 'auth/operation-not-allowed'
-        ? 'Acesso como visitante n\u00e3o habilitado. Contate o administrador.'
-        : ('Erro: ' + (e.message || e))
-    );
-    if (btn) { btn.disabled = false; btn.textContent = '&#128100; Entrar como Visitante'; }
-  }
-}
-
-async function resetarSenha() {
-  var email = document.getElementById('auth-email').value.trim();
-  if (!email) { _mostrarErroAuth('Digite seu e-mail acima para redefinir a senha.'); return; }
-  try {
-    await _auth.sendPasswordResetEmail(email);
-    _mostrarErroAuth('');
-    mostrarToast('&#128231; E-mail de redefinição enviado!', '#1a3a1a', 5000);
-  } catch (e) {
-    _mostrarErroAuth(_MSGS_AUTH[e.code] || e.message);
-  }
-}
-
-async function sairUsuario() {
-  if (!confirm('Deseja sair?')) return;
-  await _auth.signOut();
-}
-
-function atualizarStatusUsuario() {
-  var el = document.getElementById('user-status');
-  if (!el) return;
-  if (_user && _modoVisitante) {
-    el.innerHTML =
-      '<span class="user-email" style="background:rgba(255,180,0,.18);border-color:rgba(255,180,0,.4);color:rgba(255,240,180,.95);">&#128100; Visitante</span>' +
-      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
-  } else if (_user) {
-    el.innerHTML =
-      '<span class="user-email">' + _user.email + '</span>' +
-      '<button class="btn-ghost btn-xs" onclick="sairUsuario()">Sair</button>';
-  } else {
-    el.innerHTML = '';
-  }
-}
-
-// ----------------------------------------------------------
 // GERAR LAUDO — lógica clínica preservada integralmente
 // ----------------------------------------------------------
+
 
 function _isChecked(id) {
   var el = document.getElementById(id);
@@ -1317,5 +1345,88 @@ function applyItalic() {
 
 function applyUnderline() {
   toggleFormat('underline');
+}
+
+// ----------------------------------------------------------
+// ADMIN — Gerenciar Códigos de Acesso
+// ----------------------------------------------------------
+
+function abrirPopupAdmin() {
+  document.getElementById('admin-popup').style.display = 'block';
+  document.getElementById('backdrop').classList.add('show');
+  listarCodigosAdmin();
+}
+
+function fecharPopupAdmin() {
+  document.getElementById('admin-popup').style.display = 'none';
+  document.getElementById('backdrop').classList.remove('show');
+  document.getElementById('admin-codigo-novo').value = '';
+}
+
+async function listarCodigosAdmin() {
+  var container = document.getElementById('admin-lista-codigos');
+  if (!container) return;
+  container.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:8px;text-align:center;">Carregando...</p>';
+  try {
+    var snapshot = await _firestore.collection('codigos').orderBy('criadoEm', 'desc').get();
+    if (snapshot.empty) {
+      container.innerHTML = '<p style="color:var(--ink3);font-size:13px;padding:12px;text-align:center;">Nenhum código criado ainda.</p>';
+      return;
+    }
+    var html = '';
+    snapshot.forEach(function (doc) {
+      var data = doc.data();
+      var id = doc.id;
+      var criadoEm = data.criadoEm
+        ? (data.criadoEm.toDate ? data.criadoEm.toDate().toLocaleString('pt-BR') : data.criadoEm)
+        : '-';
+      var usadoPor = data.usadoPor || '-';
+      var bg = data.usado ? 'rgba(200,70,70,.08)' : 'rgba(42,122,82,.08)';
+      var color = data.usado ? '#a04040' : '#1a6a42';
+      html += '<div style="display:flex;align-items:center;justify-content:space-between;padding:8px 10px;border-bottom:1px solid var(--border2);background:' + bg + ';border-radius:4px;margin-bottom:4px;">' +
+        '<div><strong style="font-family:DM Mono,monospace;font-size:14px;color:' + color + ';">' + id + '</strong>' +
+        '<br><span style="font-size:11.5px;color:var(--ink3);">Criado: ' + criadoEm + '</span>' +
+        (data.usadoPor ? '<br><span style="font-size:11.5px;color:var(--ink3);">Usado por: ' + usadoPor + '</span>' : '') +
+        '</div>' +
+        '<span style="font-size:12px;font-weight:600;padding:3px 10px;border-radius:10px;background:' + (data.usado ? '#e8c4c4' : '#c4e8d4') + ';color:' + (data.usado ? '#7a3030' : '#1a5a32') + ';">' + (data.usado ? 'Usado' : 'Disponível') + '</span>' +
+        '</div>';
+    });
+    container.innerHTML = html;
+  } catch (e) {
+    console.error('[listarCodigosAdmin]', e);
+    container.innerHTML = '<p style="color:var(--danger);font-size:13px;padding:12px;text-align:center;">Erro ao carregar: ' + e.message + '</p>';
+  }
+}
+
+async function criarCodigoAdmin() {
+  var input = document.getElementById('admin-codigo-novo');
+  var codigo = input.value.trim().toUpperCase();
+  if (!codigo) {
+    mostrarToast('&#9888; Digite um código.', '#7a4000', 3000);
+    return;
+  }
+  try {
+    await _firestore.collection('codigos').doc(codigo).set({
+      criadoEm: firebase.firestore.FieldValue.serverTimestamp(),
+      usado: false,
+      usadoPor: null,
+      usadoEm: null
+    });
+    mostrarToast('✅ Código "' + codigo + '" criado com sucesso!', '#1a3a1a', 4000);
+    input.value = '';
+    listarCodigosAdmin();
+  } catch (e) {
+    console.error('[criarCodigoAdmin]', e);
+    mostrarToast('&#10060; Erro ao criar código: ' + e.message, '#7a1a1a', 5000);
+  }
+}
+
+// Sobrescreve o fecharTodosPopups original para incluir o admin-popup
+function fecharTodosPopups() {
+  document.getElementById('popup').style.display        = 'none';
+  document.getElementById('create-popup').style.display = 'none';
+  document.getElementById('admin-popup').style.display  = 'none';
+  document.getElementById('backdrop').classList.remove('show');
+  document.getElementById('checkbox-list').innerHTML    = '';
 }
 

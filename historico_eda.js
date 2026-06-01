@@ -1,33 +1,114 @@
 // ============================================================
 // HISTÓRICO + BUSCA RÁPIDA — Gerar Laudo EDA
-// Depende de: funcoes_eda.js (coletarDB, inicializar, mostrarToast,
-//             generateText, salvarDados, fecharTodosPopups,
-//             _temAlteracoes, atualizarIndicadorSalvo)
+// Depende de: core_eda.js (mostrarToast, confirmar, _temAlteracoes,
+//             atualizarIndicadorSalvo, _autoSaveAtivo, _user, etc.),
+//             ui_eda.js (coletarDB, inicializar, fecharTodosPopups),
+//             laudo_eda.js (montarLaudo, generateText),
+//             storage_eda.js (salvarDados, _userSlots).
 // ============================================================
 
 // ----------------------------------------------------------
 // HISTÓRICO — Desfazer / Refazer / Último laudo
 // ----------------------------------------------------------
 
-var _histUndo      = [];
-var _histRedo      = [];
-var _histLast      = null;
-var _histAplicando = false;
-var _histTimer     = null;
-var _histInstalado = false;
-var HIST_LIMITE    = 50;
-var HIST_KEY_LAUDO = 'eda_ultimo_laudo';
+// _histUndo/_histRedo guardam entradas { snap, label }, onde `label` descreve
+// a ação que produziu a transição (ex.: "criar item"). O mesmo label viaja
+// entre as pilhas para que desfazer e refazer anunciem a mesma ação.
+let _histUndo      = [];
+let _histRedo      = [];
+let _histLast      = null;
+let _histPendLabel = '';   // label da ação pendente até o próximo _histCommit()
+let _histAplicando = false;
+let _histTimer     = null;
+let _histInstalado = false;
+const HIST_LIMITE    = 50;
+const HIST_KEY_LAUDO = 'eda_ultimo_laudo';
 
+// Snapshot só dos "dados salvos" (estrutura que vai pro Firestore):
+// itens das seções e listas de dropdown. NÃO inclui estado de marcação
+// de checkboxes, selects de uso nem output gerado — esses formam a
+// "camada de uso" e são preservados intactos no desfazer.
 function _histCapturar() {
   if (!window._inicializado) return null;
   try {
-    var checks = Array.from(document.querySelectorAll('input[type="checkbox"]')).map(function (cb) {
+    return JSON.stringify(coletarDB({ semDinamicos: true }));
+  } catch (e) { return null; }
+}
+
+function _histRestaurar(snapJson) {
+  if (!snapJson) return;
+  let db;
+  try { db = JSON.parse(snapJson); } catch (e) { return; }
+  _histAplicando = true;
+  window._histAplicando = true; // espelha pro guard em inicializar()
+  try {
+    // Preserva a camada de uso (não é dado salvo).
+    let checks = Array.from(document.querySelectorAll('input[type="checkbox"]')).map(function (cb) {
       return { id: cb.id || '', name: cb.name || '', checked: !!cb.checked };
     });
-    var selects = Array.from(document.querySelectorAll('select')).map(function (s) {
+    let selects = Array.from(document.querySelectorAll('select')).map(function (s) {
       return { id: s.id || '', value: s.value };
     });
-    var out = document.getElementById('output');
+    let out = document.getElementById('output');
+    let outputHtml = out ? out.innerHTML : '';
+
+    // Substitui a estrutura e re-renderiza as seções/dropdowns.
+    inicializar(db);
+
+    // Re-aplica camada de uso por cima da nova estrutura.
+    let checksByName = {};
+    document.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+      let n = cb.name || '';
+      if (!checksByName[n]) checksByName[n] = [];
+      checksByName[n].push(cb);
+    });
+    checks.forEach(function (c) {
+      let el = c.id ? document.getElementById(c.id) : null;
+      if (el && el.type === 'checkbox') { el.checked = c.checked; return; }
+      if (c.name && checksByName[c.name]) {
+        checksByName[c.name].forEach(function (cb) { cb.checked = c.checked; });
+      }
+    });
+    selects.forEach(function (s) {
+      if (!s.id) return;
+      let el = document.getElementById(s.id);
+      if (!el) return;
+      // Só re-aplica se a option ainda existir (lista pode ter mudado).
+      let existe = Array.from(el.options).some(function (o) { return o.value === s.value; });
+      if (existe) el.value = s.value;
+    });
+    if (out) {
+      out.innerHTML = outputHtml;
+      if (typeof _rebasearBlocos === 'function') _rebasearBlocos(out);
+    }
+
+    _temAlteracoes = true;
+    atualizarIndicadorSalvo();
+    _histLast = snapJson;
+  } catch (e) {
+    console.error('[hist] erro ao restaurar:', e);
+  } finally {
+    setTimeout(function () {
+      _histAplicando = false;
+      window._histAplicando = false;
+    }, 60);
+    atualizarBotoesHistorico();
+  }
+}
+
+// Snapshot completo do laudo (estrutura + camada de uso). Usado pelo
+// "↺ Último laudo" no sessionStorage, que precisa reproduzir o laudo
+// inteiro (com itens marcados, valores escolhidos e texto gerado).
+function _capturarLaudoCompleto() {
+  if (!window._inicializado) return null;
+  try {
+    let checks = Array.from(document.querySelectorAll('input[type="checkbox"]')).map(function (cb) {
+      return { id: cb.id || '', name: cb.name || '', checked: !!cb.checked };
+    });
+    let selects = Array.from(document.querySelectorAll('select')).map(function (s) {
+      return { id: s.id || '', value: s.value };
+    });
+    let out = document.getElementById('output');
     return JSON.stringify({
       db:      coletarDB(),
       checks:  checks,
@@ -37,46 +118,58 @@ function _histCapturar() {
   } catch (e) { return null; }
 }
 
-function _histRestaurar(snapJson) {
+function _restaurarLaudoCompleto(snapJson) {
   if (!snapJson) return;
-  var estado;
+  let estado;
   try { estado = JSON.parse(snapJson); } catch (e) { return; }
   _histAplicando = true;
+  window._histAplicando = true;
   try {
     inicializar(estado.db);
+    let checksByName = {};
+    document.querySelectorAll('input[type="checkbox"]').forEach(function (cb) {
+      let n = cb.name || '';
+      if (!checksByName[n]) checksByName[n] = [];
+      checksByName[n].push(cb);
+    });
     (estado.checks || []).forEach(function (c) {
-      var el = c.id ? document.getElementById(c.id) : null;
+      let el = c.id ? document.getElementById(c.id) : null;
       if (el && el.type === 'checkbox') { el.checked = c.checked; return; }
-      if (c.name) {
-        document.querySelectorAll('input[type="checkbox"][name="' + c.name.replace(/"/g, '\\"') + '"]').forEach(function (cb) {
-          cb.checked = c.checked;
-        });
+      if (c.name && checksByName[c.name]) {
+        checksByName[c.name].forEach(function (cb) { cb.checked = c.checked; });
       }
     });
     (estado.selects || []).forEach(function (s) {
       if (!s.id) return;
-      var el = document.getElementById(s.id);
+      let el = document.getElementById(s.id);
       if (el) el.value = s.value;
     });
-    var out = document.getElementById('output');
-    if (out) out.innerHTML = estado.output || '';
+    let out = document.getElementById('output');
+    if (out) {
+      out.innerHTML = estado.output || '';
+      if (typeof _rebasearBlocos === 'function') _rebasearBlocos(out);
+    }
     _temAlteracoes = true;
     atualizarIndicadorSalvo();
-    _histLast = snapJson;
+    _histLast = _histCapturar();
   } catch (e) {
-    console.error('[hist] erro ao restaurar:', e);
+    console.error('[hist] erro ao restaurar laudo completo:', e);
   } finally {
-    setTimeout(function () { _histAplicando = false; }, 60);
+    setTimeout(function () {
+      _histAplicando = false;
+      window._histAplicando = false;
+    }, 60);
     atualizarBotoesHistorico();
   }
 }
 
 function _histCommit() {
-  var snap = _histCapturar();
+  let snap = _histCapturar();
   if (snap === null) return;
+  let label = _histPendLabel; _histPendLabel = '';
   if (_histLast === null) { _histLast = snap; atualizarBotoesHistorico(); return; }
   if (snap === _histLast) return;
-  _histUndo.push(_histLast);
+  _histUndo.push({ snap: _histLast, label: label });
   if (_histUndo.length > HIST_LIMITE) _histUndo.shift();
   _histRedo.length = 0;
   _histLast = snap;
@@ -91,9 +184,10 @@ function _flushSnapshot() {
   _histCommit();
 }
 
-function registrarSnapshot() {
+function registrarSnapshot(label) {
   if (_histAplicando) return;
   if (!window._inicializado) return;
+  if (label) _histPendLabel = label;
   clearTimeout(_histTimer);
   _histTimer = setTimeout(function () {
     _histTimer = null;
@@ -105,55 +199,62 @@ function registrarSnapshot() {
 function desfazer() {
   _flushSnapshot();
   if (!_histUndo.length) { mostrarToast('↶ Nada para desfazer', '#7a4000', 1500); return; }
-  var atual = _histCapturar();
-  var prev  = _histUndo.pop();
-  if (atual !== null && atual !== prev) _histRedo.push(atual);
-  _histRestaurar(prev);
-  mostrarToast('↶ Desfeito', '#1a3a5a', 1400);
+  let atual = _histCapturar();
+  let entry = _histUndo.pop();
+  let label = entry.label;
+  if (atual !== null && atual !== entry.snap) _histRedo.push({ snap: atual, label: label });
+  _histRestaurar(entry.snap);
+  mostrarToast(label ? '↶ Desfeito: ' + label : '↶ Desfeito', '#1a3a5a', 1600);
 }
 
 function refazer() {
   _flushSnapshot();
   if (!_histRedo.length) { mostrarToast('↷ Nada para refazer', '#7a4000', 1500); return; }
-  var atual = _histCapturar();
-  var next  = _histRedo.pop();
-  if (atual !== null && atual !== next) _histUndo.push(atual);
-  _histRestaurar(next);
-  mostrarToast('↷ Refeito', '#1a3a5a', 1400);
+  let atual = _histCapturar();
+  let entry = _histRedo.pop();
+  let label = entry.label;
+  if (atual !== null && atual !== entry.snap) _histUndo.push({ snap: atual, label: label });
+  _histRestaurar(entry.snap);
+  mostrarToast(label ? '↷ Refeito: ' + label : '↷ Refeito', '#1a3a5a', 1600);
 }
 
 function salvarUltimoLaudo() {
-  var snap = _histCapturar();
+  let snap = _capturarLaudoCompleto();
   if (!snap) return;
   try { sessionStorage.setItem(HIST_KEY_LAUDO, snap); } catch (e) {}
   atualizarBotoesHistorico();
 }
 
-function recuperarUltimoLaudo() {
-  var snap = sessionStorage.getItem(HIST_KEY_LAUDO);
+async function recuperarUltimoLaudo() {
+  let snap = sessionStorage.getItem(HIST_KEY_LAUDO);
   if (!snap) { mostrarToast('Nenhum laudo anterior salvo nesta sessão.', '#7a4000', 2800); return; }
-  if (!confirm('Substituir o estado atual pelo último laudo gerado?\n\n(É possível desfazer com Ctrl+Z)')) return;
+  if (!await confirmar('Substituir o estado atual pelo último laudo gerado?', { okText: 'Substituir' })) return;
   _flushSnapshot();
-  var atual = _histCapturar();
-  if (atual !== null && atual !== snap) {
-    _histUndo.push(atual);
+  // Empurra o snapshot estrutural atual pro undo, para permitir reverter
+  // caso a restauração mude itens criados/excluídos desde então.
+  let atualEstrutura = _histCapturar();
+  if (atualEstrutura !== null && atualEstrutura !== _histLast) {
+    _histUndo.push({ snap: _histLast, label: 'recuperar último laudo' });
     if (_histUndo.length > HIST_LIMITE) _histUndo.shift();
     _histRedo.length = 0;
+    _histLast = atualEstrutura;
   }
-  _histRestaurar(snap);
+  _restaurarLaudoCompleto(snap);
   mostrarToast('↺ Último laudo recuperado.', '#1a3a1a', 2500);
 }
 
 function atualizarBotoesHistorico() {
-  var bU = document.getElementById('btn-desfazer');
-  var bR = document.getElementById('btn-refazer');
-  var bL = document.getElementById('btn-recuperar');
-  if (bU) bU.disabled = _histUndo.length === 0;
-  if (bR) bR.disabled = _histRedo.length === 0;
-  if (bL) bL.disabled = !sessionStorage.getItem(HIST_KEY_LAUDO);
+  // Atualiza TODAS as cópias dos botões (sidebar + barra de título), por isso
+  // selecionamos via onclick em vez de getElementById (id é único no DOM).
+  let undoOff = _histUndo.length === 0;
+  let redoOff = _histRedo.length === 0;
+  let lastOff = !sessionStorage.getItem(HIST_KEY_LAUDO);
+  document.querySelectorAll('[onclick="desfazer()"]').forEach(function (b) { b.disabled = undoOff; });
+  document.querySelectorAll('[onclick="refazer()"]').forEach(function (b) { b.disabled = redoOff; });
+  document.querySelectorAll('[onclick="recuperarUltimoLaudo()"]').forEach(function (b) { b.disabled = lastOff; });
 }
 
-var _liveTimer = null;
+let _liveTimer = null;
 function _agendarLiveLaudo() {
   if (_histAplicando) return;
   if (typeof montarLaudo !== 'function') return;
@@ -168,51 +269,43 @@ function _instalarHistorico() {
   if (_histInstalado) return;
   _histInstalado = true;
 
+  // Detecta edição manual por seção (modelo de blocos): quando o usuário
+  // digita no #output, marca quais blocos divergiram do gerado para que
+  // montarLaudo não os sobrescreva.
+  let outEl = document.getElementById('output');
+  if (outEl) {
+    outEl.addEventListener('input', function () {
+      if (_histAplicando) return;
+      if (typeof _marcarSecoesEditadas === 'function') _marcarSecoesEditadas(this);
+    });
+  }
+
+  // Live-preview do laudo: atualiza o #output em mudanças de UI, mas NÃO
+  // cria snapshot. O histórico é capturado apenas em ações estruturais
+  // explícitas (criar/editar/excluir item, editar listas, carregar padrão).
   document.addEventListener('change', function (e) {
-    var t = e.target;
+    let t = e.target;
     if (!t) return;
     if (t.type === 'checkbox' || t.tagName === 'SELECT' ||
         (t.tagName === 'INPUT' && /^(text|number|search|email|url|tel)$/i.test(t.type))) {
-      registrarSnapshot();
       _agendarLiveLaudo();
     }
   });
 
-  try {
-    var alvo = document.querySelector('main') || document.body;
-    var mo = new MutationObserver(function (muts) {
-      if (_histAplicando) return;
-      for (var i = 0; i < muts.length; i++) {
-        var m = muts[i];
-        if (m.type !== 'childList') continue;
-        if (!m.addedNodes.length && !m.removedNodes.length) continue;
-        var nodos = [];
-        m.addedNodes.forEach(function (n) { nodos.push(n); });
-        m.removedNodes.forEach(function (n) { nodos.push(n); });
-        for (var j = 0; j < nodos.length; j++) {
-          var n = nodos[j];
-          if (n.nodeType !== 1) continue;
-          if (n.classList && n.classList.contains('item')) {
-            registrarSnapshot();
-            _agendarLiveLaudo();
-            return;
-          }
-        }
-      }
-    });
-    mo.observe(alvo, { childList: true, subtree: true });
-  } catch (e) { console.warn('[hist] MutationObserver indisponível:', e); }
-
   document.addEventListener('keydown', function (e) {
-    var alvo = e.target;
-    var emTexto = alvo && (alvo.tagName === 'TEXTAREA' || alvo.isContentEditable ||
+    let alvo = e.target;
+    let emTexto = alvo && (alvo.tagName === 'TEXTAREA' || alvo.isContentEditable ||
       (alvo.tagName === 'INPUT' && /^(text|search|email|password|number|url|tel)$/i.test(alvo.type)));
 
     if (e.key === 'Escape') {
       if (typeof fecharTodosPopups === 'function') {
-        var pop = document.getElementById('popup');
-        var crp = document.getElementById('create-popup');
-        if ((pop && pop.style.display === 'block') || (crp && crp.style.display === 'block')) {
+        let pop = document.getElementById('popup');
+        let crp = document.getElementById('create-popup');
+        let fmt = document.getElementById('popup-formato');
+        // popup-formato abre com display:grid (≠ 'block') — testa por '!= none'.
+        if ((pop && pop.style.display === 'block') ||
+            (crp && crp.style.display === 'block') ||
+            (fmt && fmt.style.display !== 'none' && fmt.style.display !== '')) {
           e.preventDefault(); fecharTodosPopups();
         }
       }
@@ -220,7 +313,7 @@ function _instalarHistorico() {
     }
 
     if (!(e.ctrlKey || e.metaKey)) return;
-    var k = (e.key || '').toLowerCase();
+    let k = (e.key || '').toLowerCase();
 
     if (k === 'enter') { e.preventDefault(); generateText(); return; }
     if (k === 's')     { e.preventDefault(); salvarDados(); return; }
@@ -228,9 +321,6 @@ function _instalarHistorico() {
     if (emTexto) return;
     if (k === 'z' && !e.shiftKey)                    { e.preventDefault(); desfazer(); }
     else if (k === 'y' || (k === 'z' && e.shiftKey)) { e.preventDefault(); refazer(); }
-    else if (k === 'k') {
-      if (typeof abrirBuscaRapida === 'function') { e.preventDefault(); abrirBuscaRapida(); }
-    }
   });
 }
 
@@ -245,189 +335,336 @@ function _resetHistorico() {
 }
 
 // ----------------------------------------------------------
-// BUSCA RÁPIDA (Ctrl+K)
-// ----------------------------------------------------------
-
-var _bqIndice = [];
-var _bqSelecionado = 0;
-
-function _bqMontarOverlay() {
-  if (document.getElementById('busca-overlay')) return;
-  var ov = document.createElement('div');
-  ov.id = 'busca-overlay';
-  ov.style.cssText = 'display:none;position:fixed;inset:0;background:rgba(5,20,12,.45);z-index:99996;backdrop-filter:blur(3px);align-items:flex-start;justify-content:center;padding-top:80px;';
-  ov.innerHTML =
-    '<div id="busca-box" style="background:#fff;border-radius:10px;width:min(94vw,560px);box-shadow:0 10px 40px rgba(0,0,0,.25);overflow:hidden;font-family:\'DM Sans\',sans-serif;">' +
-    '  <input id="busca-input" type="text" placeholder="Buscar item… (↑↓ navegar, Enter marcar, Esc fechar)" ' +
-    '         style="width:100%;padding:14px 16px;font-size:15px;border:none;outline:none;border-bottom:1px solid #e0e8e3;box-sizing:border-box;">' +
-    '  <div id="busca-resultados" style="max-height:50vh;overflow-y:auto;"></div>' +
-    '</div>';
-  document.body.appendChild(ov);
-  ov.addEventListener('click', function (e) { if (e.target === ov) fecharBuscaRapida(); });
-  var inp = document.getElementById('busca-input');
-  inp.addEventListener('input', _bqAtualizar);
-  inp.addEventListener('keydown', _bqTeclado);
-}
-
-function _bqIndexar() {
-  _bqIndice = [];
-  document.querySelectorAll('.sortable-zone').forEach(function (zona) {
-    var secaoId = zona.id.replace('sortable-', '');
-    var secLabel = '';
-    var secRow = zona.closest('.sec-row');
-    if (secRow) {
-      var sl = secRow.querySelector('.sec-label');
-      if (sl) secLabel = sl.textContent.trim();
-    }
-    zona.querySelectorAll('.item').forEach(function (item) {
-      if (item.getAttribute('data-sep') === '1') return;
-      var cb = item.querySelector('input[type="checkbox"]');
-      var lab = item.querySelector('label');
-      if (!cb || !lab) return;
-      _bqIndice.push({
-        nome: lab.textContent.trim(),
-        valor: cb.value || '',
-        secao: secLabel || secaoId,
-        cb: cb,
-        item: item
-      });
-    });
-  });
-}
-
-function _bqAtualizar() {
-  var q = (document.getElementById('busca-input').value || '').trim().toLowerCase();
-  var lista = document.getElementById('busca-resultados');
-  lista.innerHTML = '';
-  _bqSelecionado = 0;
-  if (!q) {
-    lista.innerHTML = '<div style="padding:14px 16px;color:#7a9882;font-size:13px;">Digite para buscar entre os itens das seções.</div>';
-    return;
-  }
-  var matches = _bqIndice.filter(function (it) {
-    return it.nome.toLowerCase().indexOf(q) !== -1 || it.valor.toLowerCase().indexOf(q) !== -1;
-  }).slice(0, 30);
-  if (!matches.length) {
-    lista.innerHTML = '<div style="padding:14px 16px;color:#7a9882;font-size:13px;">Nenhum item encontrado.</div>';
-    return;
-  }
-  matches.forEach(function (m, i) {
-    var d = document.createElement('div');
-    d.className = 'busca-item';
-    d.dataset.idx = i;
-    d.style.cssText = 'padding:9px 16px;cursor:pointer;border-bottom:1px solid #f0f4f1;display:flex;justify-content:space-between;gap:10px;align-items:center;font-size:13.5px;' +
-      (i === 0 ? 'background:#e6f4ed;' : '');
-    var esq = document.createElement('div');
-    esq.style.cssText = 'flex:1;min-width:0;';
-    var nm = document.createElement('div');
-    nm.textContent = (m.cb.checked ? '✓ ' : '') + m.nome;
-    nm.style.cssText = 'color:#172418;font-weight:500;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    var vl = document.createElement('div');
-    vl.textContent = (m.valor || '').replace(/<br\s*\/?>/gi, ' ').replace(/<[^>]+>/g, '').slice(0, 90);
-    vl.style.cssText = 'color:#7a9882;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;';
-    esq.appendChild(nm); esq.appendChild(vl);
-    var dir = document.createElement('div');
-    dir.textContent = m.secao;
-    dir.style.cssText = 'color:#3d5c46;font-size:11px;text-transform:uppercase;letter-spacing:.05em;flex-shrink:0;';
-    d.appendChild(esq); d.appendChild(dir);
-    d.addEventListener('click', function () { _bqAtivar(matches[Number(this.dataset.idx)]); });
-    d.addEventListener('mouseenter', function () { _bqDestacar(Number(this.dataset.idx)); });
-    lista.appendChild(d);
-  });
-  lista._matches = matches;
-}
-
-function _bqDestacar(idx) {
-  var lista = document.getElementById('busca-resultados');
-  Array.from(lista.children).forEach(function (el, i) {
-    el.style.background = (i === idx) ? '#e6f4ed' : '';
-  });
-  _bqSelecionado = idx;
-  var ativo = lista.children[idx];
-  if (ativo && ativo.scrollIntoView) ativo.scrollIntoView({ block: 'nearest' });
-}
-
-function _bqTeclado(e) {
-  var lista = document.getElementById('busca-resultados');
-  var n = (lista._matches || []).length;
-  if (e.key === 'ArrowDown') { e.preventDefault(); if (n) _bqDestacar((_bqSelecionado + 1) % n); }
-  else if (e.key === 'ArrowUp') { e.preventDefault(); if (n) _bqDestacar((_bqSelecionado - 1 + n) % n); }
-  else if (e.key === 'Enter') { e.preventDefault(); if (n && lista._matches[_bqSelecionado]) _bqAtivar(lista._matches[_bqSelecionado]); }
-  else if (e.key === 'Escape') { e.preventDefault(); fecharBuscaRapida(); }
-}
-
-function _bqAtivar(m) {
-  if (!m || !m.cb) return;
-  m.cb.checked = !m.cb.checked;
-  m.cb.dispatchEvent(new Event('change', { bubbles: true }));
-  fecharBuscaRapida();
-  try { m.item.scrollIntoView({ block: 'center', behavior: 'smooth' }); } catch (e) {}
-  m.item.style.transition = 'box-shadow .25s';
-  m.item.style.boxShadow = '0 0 0 3px rgba(42,122,82,.45)';
-  setTimeout(function () { m.item.style.boxShadow = ''; }, 1100);
-}
-
-function abrirBuscaRapida() {
-  _bqMontarOverlay();
-  _bqIndexar();
-  var ov = document.getElementById('busca-overlay');
-  ov.style.display = 'flex';
-  var inp = document.getElementById('busca-input');
-  inp.value = '';
-  _bqAtualizar();
-  setTimeout(function () { inp.focus(); }, 30);
-}
-
-function fecharBuscaRapida() {
-  var ov = document.getElementById('busca-overlay');
-  if (ov) ov.style.display = 'none';
-}
-
-// ----------------------------------------------------------
 // SIDEBAR — submenu Salvar e toggle "Caixa lateral"
 // ----------------------------------------------------------
 
-var LATERAL_KEY = 'eda_lateral_on';
+const LATERAL_KEY = 'eda_lateral_on';
+const HEADER_H = 58;
+const LATERAL_DESKTOP_MQ = '(min-width: 1281px)';
+
+var _roToolbar = null;
+var _resizeChromeTimer = null;
+var _animCaixaTimer = null;
+
+function _syncLateralHtmlClass(on) {
+  document.documentElement.classList.toggle('lateral-on', on);
+}
+
+function _isLateralDesktop() {
+  return window.matchMedia(LATERAL_DESKTOP_MQ).matches;
+}
+
+function atualizarChromeLateral() {
+  var root = document.documentElement;
+  var on = document.body.classList.contains('lateral-on');
+  _syncLateralHtmlClass(on);
+
+  if (!on || !_isLateralDesktop()) {
+    root.style.removeProperty('--toolbar-h');
+    root.style.removeProperty('--chrome-h');
+    return;
+  }
+
+  var tb = document.querySelector('.toolbar');
+  // No modo lateral a toolbar fica oculta (botões vão para .header-actions na
+  // barra de título), então o chrome é só a altura do header — sem reservar
+  // espaço para a toolbar. Reseta as variáveis para o fallback do :root.
+  if (!tb || window.getComputedStyle(tb).display === 'none') {
+    root.style.removeProperty('--toolbar-h');
+    root.style.removeProperty('--chrome-h');
+    return;
+  }
+
+  var th = Math.ceil(tb.getBoundingClientRect().height);
+  if (th < 1) th = 52;
+  root.style.setProperty('--toolbar-h', th + 'px');
+  root.style.setProperty('--chrome-h', (HEADER_H + th) + 'px');
+}
+
+function _aplicarChromeFallback() {
+  // Toolbar oculta no lateral: chrome = só o header (sem barra de ferramentas).
+  document.documentElement.style.removeProperty('--toolbar-h');
+  document.documentElement.style.removeProperty('--chrome-h');
+}
+
+function observarToolbar() {
+  var tb = document.querySelector('.toolbar');
+  if (!tb || typeof ResizeObserver === 'undefined') return;
+  if (_roToolbar) _roToolbar.disconnect();
+  _roToolbar = new ResizeObserver(function () {
+    if (document.body.classList.contains('lateral-on')) atualizarChromeLateral();
+  });
+  _roToolbar.observe(tb);
+}
+
+function _agendarChromeLateral() {
+  requestAnimationFrame(function () {
+    requestAnimationFrame(atualizarChromeLateral);
+  });
+}
+
+function _resetScrollLateral() {
+  window.scrollTo(0, 0);
+}
+
+// _efeitosAtivos() está em ui_eda.js (carregado antes deste módulo).
+
+function _prepararAnimacaoCaixa() {
+  if (!_efeitosAtivos()) return null;
+  var caixa = document.querySelector('.output-wrap');
+  if (!caixa) return null;
+  var rect = caixa.getBoundingClientRect();
+  if (rect.width < 1 || rect.height < 1) return null;
+  return rect;
+}
+
+function _animarTransicaoCaixa(rectAntes, lateralOn) {
+  if (!rectAntes || !_efeitosAtivos()) return;
+
+  var caixa = document.querySelector('.output-wrap');
+  var main = document.querySelector('.main-col');
+  if (!caixa) return;
+
+  clearTimeout(_animCaixaTimer);
+  caixa.classList.remove('caixa-layout-animando');
+  caixa.style.transition = '';
+  caixa.style.transform = '';
+  caixa.style.transformOrigin = '';
+  caixa.style.opacity = '';
+
+  requestAnimationFrame(function () {
+    var rectDepois = caixa.getBoundingClientRect();
+    if (rectDepois.width < 1 || rectDepois.height < 1) return;
+
+    var dx = rectAntes.left - rectDepois.left;
+    var dy = rectAntes.top - rectDepois.top;
+    var sx = rectAntes.width / rectDepois.width;
+    var sy = rectAntes.height / rectDepois.height;
+
+    document.body.classList.toggle('caixa-transicao-lateral', !!lateralOn);
+    document.body.classList.toggle('caixa-transicao-horizontal', !lateralOn);
+    caixa.classList.add('caixa-layout-animando');
+    if (main) main.classList.add('main-col-layout-animando');
+
+    caixa.style.transformOrigin = 'top left';
+    caixa.style.transform = 'translate(' + dx + 'px, ' + dy + 'px) scale(' + sx + ', ' + sy + ')';
+    caixa.style.opacity = '0.88';
+
+    caixa.getBoundingClientRect();
+    requestAnimationFrame(function () {
+      caixa.style.transition = 'transform 460ms cubic-bezier(.16, 1, .3, 1), opacity 240ms ease, box-shadow 460ms cubic-bezier(.16, 1, .3, 1)';
+      caixa.style.transform = 'translate(0, 0) scale(1, 1)';
+      caixa.style.opacity = '';
+    });
+
+    var limpar = function (ev) {
+      if (ev && ev.propertyName !== 'transform') return;
+      caixa.classList.remove('caixa-layout-animando');
+      caixa.style.transition = '';
+      caixa.style.transform = '';
+      caixa.style.transformOrigin = '';
+      caixa.style.opacity = '';
+      document.body.classList.remove('caixa-transicao-lateral', 'caixa-transicao-horizontal');
+      if (main) main.classList.remove('main-col-layout-animando');
+      caixa.removeEventListener('transitionend', limpar);
+    };
+
+    caixa.addEventListener('transitionend', limpar);
+    _animCaixaTimer = setTimeout(limpar, 620);
+  });
+}
+
+function _fecharSubmenusLaterais() {
+  ['salvar', 'carregar'].forEach(function (q) {
+    var sub = document.getElementById('sb-submenu-' + q);
+    var btn = document.getElementById('sb-folder-toggle-' + q);
+    if (sub) sub.classList.remove('show');
+    if (btn) btn.classList.remove('open');
+  });
+}
+
+function _posicionarMenuToolbar(menu, alvo) {
+  if (!menu || !alvo) return;
+  var gap = 0;
+  var r = alvo.getBoundingClientRect();
+  var sidebar = alvo.closest ? alvo.closest('.sidebar') : null;
+  var toolbar = alvo.closest ? alvo.closest('.toolbar') : null;
+
+  if (sidebar && window.getComputedStyle(sidebar).display !== 'none') {
+    var sr = sidebar.getBoundingClientRect();
+    menu.style.top = r.top + 'px';
+    menu.style.left = (sr.right + gap) + 'px';
+    return;
+  }
+
+  if (toolbar && window.getComputedStyle(toolbar).display !== 'none') {
+    var tr = toolbar.getBoundingClientRect();
+    menu.style.top = (tr.bottom + gap) + 'px';
+    menu.style.left = r.left + 'px';
+    return;
+  }
+
+  menu.style.top = r.bottom + 'px';
+  menu.style.left = r.left + 'px';
+}
 
 function toggleMenuSalvar(ev) {
   if (ev) ev.stopPropagation();
-  var m = document.getElementById('sb-menu-salvar');
+  // Fecha o menu Editar se estiver aberto
+  let ed = document.getElementById('sb-menu-editar');
+  if (ed) ed.classList.remove('show');
+  let m = document.getElementById('sb-menu-salvar');
   if (!m) return;
   if (m.classList.contains('show')) { m.classList.remove('show'); return; }
   if (ev && ev.currentTarget) {
-    var r = ev.currentTarget.getBoundingClientRect();
-    m.style.top = r.bottom + 'px';
-    m.style.left = r.left + 'px';
+    _posicionarMenuToolbar(m, ev.currentTarget);
   }
   refrescarMenuSalvar();
   m.classList.add('show');
 }
 
 function fecharMenuSalvar() {
-  var m = document.getElementById('sb-menu-salvar');
+  let m = document.getElementById('sb-menu-salvar');
   if (m) m.classList.remove('show');
+  _fecharSubmenusLaterais();
+}
+
+function toggleMenuEditar(ev) {
+  if (ev) ev.stopPropagation();
+  // Fecha o menu Opções se estiver aberto
+  let m = document.getElementById('sb-menu-salvar');
+  if (m) m.classList.remove('show');
+  _fecharSubmenusLaterais();
+  let ed = document.getElementById('sb-menu-editar');
+  if (!ed) return;
+  if (ed.classList.contains('show')) { ed.classList.remove('show'); return; }
+  if (ev && ev.currentTarget) {
+    _posicionarMenuToolbar(ed, ev.currentTarget);
+  }
+  ed.classList.add('show');
+}
+
+function fecharMenuEditar() {
+  let ed = document.getElementById('sb-menu-editar');
+  if (ed) ed.classList.remove('show');
+}
+
+function toggleSubpasta(qual, ev) {
+  if (ev) ev.stopPropagation();
+  var sub = document.getElementById('sb-submenu-' + qual);
+  var btn = document.getElementById('sb-folder-toggle-' + qual);
+  if (!sub || !btn) return;
+
+  // Fecha a outra subpasta lateral — só uma aberta por vez
+  var outra = qual === 'salvar' ? 'carregar' : 'salvar';
+  var subOutra = document.getElementById('sb-submenu-' + outra);
+  var btnOutra = document.getElementById('sb-folder-toggle-' + outra);
+  if (subOutra) subOutra.classList.remove('show');
+  if (btnOutra) btnOutra.classList.remove('open');
+
+  if (sub.classList.contains('show')) {
+    sub.classList.remove('show');
+    btn.classList.remove('open');
+    return;
+  }
+
+  // Posiciona ao lado do menu principal, alinhado ao topo do botão clicado
+  var mainMenu = document.getElementById('sb-menu-salvar');
+  if (mainMenu) {
+    var menuRect = mainMenu.getBoundingClientRect();
+    var btnRect = btn.getBoundingClientRect();
+    var gap = 4;
+    var subWidth = 220;
+    var leftPos = menuRect.right + gap;
+    if (leftPos + subWidth > window.innerWidth - 8) {
+      leftPos = Math.max(8, menuRect.left - subWidth - gap);
+    }
+    sub.style.left = leftPos + 'px';
+    sub.style.top = btnRect.top + 'px';
+  }
+  sub.classList.add('show');
+  btn.classList.add('open');
+}
+
+function _formatarDataSlot(ts) {
+  if (!ts) return '';
+  var d;
+  if (ts && typeof ts.toDate === 'function') d = ts.toDate();           // Firestore Timestamp
+  else if (ts instanceof Date) d = ts;
+  else if (typeof ts === 'number') d = new Date(ts);
+  else if (ts && typeof ts.seconds === 'number') d = new Date(ts.seconds * 1000);
+  else return '';
+  var dia = String(d.getDate()).padStart(2, '0');
+  var mes = String(d.getMonth() + 1).padStart(2, '0');
+  var ano = String(d.getFullYear()).slice(-2);
+  var hh = String(d.getHours()).padStart(2, '0');
+  var mm = String(d.getMinutes()).padStart(2, '0');
+  return dia + '/' + mes + '/' + ano + ' ' + hh + ':' + mm;
+}
+
+function _slotInfo(slotKey) {
+  var slots = (typeof _userSlots !== 'undefined') ? _userSlots : null;
+  var dados = slots ? slots[slotKey] : null;
+  var salvoEm = slots ? slots[slotKey + 'SalvoEm'] : null;
+  var ativo = slots ? slots.ativo : null;
+  return {
+    vazio: !dados,
+    ativo: slotKey === ativo,
+    data: _formatarDataSlot(salvoEm)
+  };
 }
 
 function refrescarMenuSalvar() {
-  var s1 = document.getElementById('sb-state-autosave');
+  let s1 = document.getElementById('sb-state-autosave');
   if (s1) {
-    var on1 = (typeof _autoSaveAtivo !== 'undefined' && _autoSaveAtivo);
+    let on1 = (typeof _autoSaveAtivo !== 'undefined' && _autoSaveAtivo);
     s1.textContent = on1 ? 'ON' : 'OFF';
     s1.classList.toggle('on', on1);
   }
-  var s2 = document.getElementById('sb-state-lateral');
-  if (s2) {
-    var on2 = document.body.classList.contains('lateral-on');
-    s2.textContent = on2 ? 'ON' : 'OFF';
-    s2.classList.toggle('on', on2);
+
+  // Estado dos efeitos visuais (toggle em Opções)
+  let sEf = document.getElementById('sb-state-efeitos');
+  if (sEf) {
+    let onEf = (localStorage.getItem('eda_efeitos') !== '0');
+    sEf.textContent = onEf ? 'ON' : 'OFF';
+    sEf.classList.toggle('on', onEf);
   }
+
+  // Atualiza rótulo do botão Caixa Lateral / Caixa Horizontal
+  let label = document.getElementById('btn-toggle-caixa-label');
+  if (label) {
+    let on2 = document.body.classList.contains('lateral-on');
+    label.textContent = on2 ? 'Caixa Horizontal' : 'Caixa Lateral';
+  }
+
+  // Atualiza estado dos slots — agora exibe data do último salvamento
+  ['slot1', 'slot2'].forEach(function (sk) {
+    var num = sk === 'slot1' ? '1' : '2';
+    var info = _slotInfo(sk);
+    var texto = info.vazio ? 'vazio' : (info.data || 'com dados');
+    [['sb-salvar-slot' + num], ['sb-carregar-slot' + num]].forEach(function (pair) {
+      var el = document.getElementById(pair[0]);
+      if (!el) return;
+      var sp = el.querySelector('.slot-data');
+      if (!sp) { sp = document.createElement('span'); sp.className = 'slot-data'; el.appendChild(sp); }
+      sp.textContent = texto;
+      sp.className = 'slot-data' + (info.ativo ? ' ativo' : '');
+    });
+  });
 }
 
 function toggleCaixaLateral() {
+  var rectAntes = _prepararAnimacaoCaixa();
   document.body.classList.toggle('lateral-on');
+  var on = document.body.classList.contains('lateral-on');
   try {
-    localStorage.setItem(LATERAL_KEY, document.body.classList.contains('lateral-on') ? '1' : '0');
+    localStorage.setItem(LATERAL_KEY, on ? '1' : '0');
   } catch (e) {}
+  if (on && _isLateralDesktop()) _aplicarChromeFallback();
+  if (!on) _resetScrollLateral();
+  _agendarChromeLateral();
+  refrescarMenuSalvar();
+  _animarTransicaoCaixa(rectAntes, on);
 }
 
 (function () {
@@ -435,17 +672,42 @@ function toggleCaixaLateral() {
     try {
       if (localStorage.getItem(LATERAL_KEY) === '1') document.body.classList.add('lateral-on');
     } catch (e) {}
+    if (document.body.classList.contains('lateral-on') && _isLateralDesktop()) _aplicarChromeFallback();
+    _syncLateralHtmlClass(document.body.classList.contains('lateral-on'));
+    observarToolbar();
+    _agendarChromeLateral();
     refrescarMenuSalvar();
   }
-  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', aplicarLateral);
-  else aplicarLateral();
+
+  function onResizeChrome() {
+    clearTimeout(_resizeChromeTimer);
+    _resizeChromeTimer = setTimeout(atualizarChromeLateral, 100);
+  }
+
+  if (document.readyState === 'loading') {
+    document.addEventListener('DOMContentLoaded', aplicarLateral);
+  } else {
+    aplicarLateral();
+  }
+  window.addEventListener('resize', onResizeChrome);
 
   document.addEventListener('click', function (e) {
-    var m = document.getElementById('sb-menu-salvar');
-    if (!m || !m.classList.contains('show')) return;
-    if (m.contains(e.target)) return;
-    var btn = e.target.closest && e.target.closest('button');
-    if (btn && btn.getAttribute('onclick') && btn.getAttribute('onclick').indexOf('toggleMenuSalvar') >= 0) return;
-    fecharMenuSalvar();
+    let btn = e.target.closest && e.target.closest('button');
+    let onclick = (btn && btn.getAttribute('onclick')) || '';
+
+    // Menu Opções (Salvar) — fecha ao clicar fora, exceto nos seus submenus laterais.
+    let m = document.getElementById('sb-menu-salvar');
+    if (m && m.classList.contains('show') && !m.contains(e.target)) {
+      let s1 = document.getElementById('sb-submenu-salvar');
+      let s2 = document.getElementById('sb-submenu-carregar');
+      let dentroSub = (s1 && s1.contains(e.target)) || (s2 && s2.contains(e.target));
+      if (!dentroSub && onclick.indexOf('toggleMenuSalvar') < 0) fecharMenuSalvar();
+    }
+
+    // Menu Editar — mesmo comportamento de recolher ao clicar fora.
+    let ed = document.getElementById('sb-menu-editar');
+    if (ed && ed.classList.contains('show') && !ed.contains(e.target)) {
+      if (onclick.indexOf('toggleMenuEditar') < 0) fecharMenuEditar();
+    }
   });
 })();

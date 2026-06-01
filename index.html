@@ -3,10 +3,11 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Laudo EDA</title>
+  <title>Gera Laudo - EDA</title>
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="styles.css">
 
   <!-- Firebase SDK (compat) -->
   <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
@@ -18,23 +19,36 @@
   <!-- Configurações (Firebase) -->
   <script src="firebase-config.js"></script>
 
-  <!-- Loader: dados_eda.js → funcoes_eda.js → inicializarFirebase() -->
+  <!-- Loader sequencial: dados → core → ui → painel → storage → laudo → admin → historico → init -->
   <script>
     (function () {
       var t = Date.now();
-      function loadScript(src, onload) {
-        var s = document.createElement('script');
-        s.src = src + '?t=' + t;
-        s.onload = onload;
-        s.onerror = function () {
-          console.error('[loader] Falha ao carregar: ' + src);
-          document.body.innerHTML =
-            '<div style="font:15px Arial;padding:40px;color:#900">' +
-            '&#10060; Erro: <b>' + src + '</b> n&#227;o p&#244;de ser carregado.<br><br>' +
-            'Verifique se o arquivo existe no reposit&#243;rio e se o nome est&#225; correto.</div>';
-        };
-        document.head.appendChild(s);
+
+      /**
+       * Carrega um script e retorna uma Promise.
+       * @param {string} url  Caminho do script (sem ?t=).
+       * @returns {Promise<void>}
+       */
+      function carregarModulo(url) {
+        return new Promise(function (resolve, reject) {
+          var s = document.createElement('script');
+          s.src = url + '?t=' + t;
+          s.onload  = resolve;
+          s.onerror = function () {
+            console.error('[loader] Falha ao carregar: ' + url);
+            document.body.innerHTML =
+              '<div style="font:15px Arial;padding:40px;color:#900">' +
+              '&#10060; Erro: <b>' + url + '</b> n&#227;o p&#244;de ser carregado.<br><br>' +
+              'Verifique se o arquivo existe no reposit&#243;rio e se o nome est&#225; correto.</div>';
+            reject(new Error('Falha ao carregar ' + url));
+          };
+          document.head.appendChild(s);
+        });
       }
+
+      /**
+       * Dispara fn quando o DOM estiver pronto.
+       */
       function domReady(fn) {
         if (document.readyState === 'loading') {
           document.addEventListener('DOMContentLoaded', fn);
@@ -42,570 +56,36 @@
           fn();
         }
       }
-      loadScript('dados_eda.js', function () {
-        loadScript('funcoes_eda.js', function () {
-          loadScript('historico_eda.js', function () {
-            domReady(inicializarFirebase);
-          });
+
+      // Ordem de carregamento respeita as dependências entre módulos
+      var scriptsParaCarregar = [
+        'dados_eda.js',           // 0 — dados (DB_PADRAO, sem dependências)
+        'core_eda.js',            // 1 — Firebase, auth, globals, helpers
+        'ui_eda.js',              // 2 — DOM, popups, edição, serialização
+        'dnd_eda.js',             // 3 — Drag & drop (Pointer Events)
+        'editor_mucosa_eda.js',   // 4 — Editor especializado Mucosa Estado
+        'painel_eda.js',          // 5 — Gastrite/Atrofia panels, TPL_EDA
+        'storage_eda.js',         // 6 — Firestore CRUD, slots
+        'laudo_eda.js',           // 7 — Geração, cópia, formatação do laudo
+        'formato_eda.js',         // 8 — Editor de perfis de formatação
+        'admin_eda.js',           // 9 — Admin codes
+        'historico_eda.js'        // 10 — Histórico (último a carregar)
+      ];
+
+      async function inicializarSistema() {
+        for (var i = 0; i < scriptsParaCarregar.length; i++) {
+          await carregarModulo(scriptsParaCarregar[i]);
+        }
+        // Todos os módulos carregados — inicia o Firebase quando o DOM estiver pronto
+        domReady(function () {
+          if (typeof inicializarFirebase === 'function') inicializarFirebase();
         });
-      });
+      }
+
+      inicializarSistema();
     })();
   </script>
 
-  <style>
-    :root {
-      --bg:       #eef2ef;
-      --panel:    #ffffff;
-      --row-alt:  #f7faf8;
-      --border:   #d6e3da;
-      --border2:  #c4d6ca;
-      --ink:      #172418;
-      --ink2:     #3d5c46;
-      --ink3:     #7a9882;
-      --primary:  #1b4d36;
-      --primary-h:#123625;
-      --accent:   #2a7a52;
-      --accent-l: #e6f4ed;
-      --pill-bg:  #f0f7f3;
-      --danger:   #c04040;
-      --shadow:   0 1px 4px rgba(0,0,0,.07);
-      --shadow-m: 0 4px 20px rgba(0,0,0,.11);
-      --r:        6px;
-      --t:        .15s ease;
-    }
-
-    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-    html { scroll-behavior: smooth; }
-
-    body {
-      font-family: 'DM Sans', system-ui, sans-serif;
-      font-size: 14.5px;
-      line-height: 1.65;
-      color: var(--ink);
-      background: var(--bg);
-      min-height: 100vh;
-      padding-bottom: 40px;
-    }
-
-    /* ── HEADER ── */
-    .app-header {
-      background: var(--primary);
-      height: 50px;
-      padding: 0 20px;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      position: sticky; top: 0; z-index: 200;
-      box-shadow: 0 2px 10px rgba(0,0,0,.22);
-    }
-    .app-header h1 {
-      font-size: 14px;
-      font-weight: 600;
-      letter-spacing: .08em;
-      text-transform: uppercase;
-      color: rgba(255,255,255,.92);
-    }
-    .app-header h1 em {
-      font-style: normal;
-      font-weight: 300;
-      opacity: .55;
-      margin-left: 10px;
-      font-size: 11.5px;
-      letter-spacing: .04em;
-      text-transform: none;
-    }
-    #github-status {
-      font-family: 'DM Mono', monospace;
-      font-size: 11px;
-      color: rgba(255,255,255,.88);
-      background: rgba(255,255,255,.1);
-      padding: 3px 11px;
-      border-radius: 20px;
-      border: 1px solid rgba(255,255,255,.18);
-    }
-
-    /* ── TOOLBAR (legacy — escondida quando sidebar ativa) ── */
-    .toolbar {
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      padding: 8px 20px;
-      display: none;
-      align-items: center;
-      gap: 5px;
-      flex-wrap: wrap;
-      box-shadow: var(--shadow);
-    }
-
-    /* ── SIDEBAR ── */
-    body { padding-left: 135px; }
-    .sidebar {
-      position: fixed; top: 0; left: 0; bottom: 0;
-      width: 135px;
-      background: var(--panel);
-      border-right: 1px solid var(--border);
-      box-shadow: 2px 0 10px rgba(0,0,0,.04);
-      display: flex; flex-direction: column;
-      padding: 14px 10px 18px;
-      gap: 4px;
-      z-index: 90;
-      overflow-y: auto;
-    }
-    .sidebar .sb-brand {
-      font-family: 'DM Mono', monospace; font-size: 11px;
-      color: var(--ink3); padding: 0 8px 8px; letter-spacing: .08em;
-      text-transform: uppercase; border-bottom: 1px solid var(--border);
-      margin-bottom: 6px;
-    }
-    .sidebar button {
-      width: 100%; justify-content: flex-start;
-      padding: 8px 10px; font-size: 13px;
-    }
-    .sidebar .sb-divider { height: 1px; background: var(--border); margin: 8px 4px; }
-    .sidebar .sb-section-label {
-      font-size: 10px; text-transform: uppercase; letter-spacing: .08em;
-      color: var(--ink3); padding: 6px 10px 2px; font-weight: 600;
-    }
-    .sidebar button[disabled] { opacity: .45; cursor: not-allowed; }
-
-    /* Submenu flutuante "Salvar ▾" */
-    .sb-submenu {
-      display: none;
-      position: fixed; left: 143px;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 8px;
-      box-shadow: 0 8px 24px rgba(0,0,0,.18);
-      min-width: 240px;
-      z-index: 95;
-      padding: 6px;
-    }
-    .sb-submenu.show { display: block; }
-    .sb-submenu button {
-      width: 100%; justify-content: flex-start;
-      padding: 8px 12px; font-size: 13px;
-      background: transparent; color: var(--ink2);
-      border: none; text-align: left; border-radius: 5px;
-      display: flex; align-items: center;
-    }
-    .sb-submenu button:hover { background: var(--accent-l); color: var(--primary); }
-    .sb-submenu .sb-toggle-state {
-      margin-left: auto; font-size: 10.5px;
-      padding: 2px 7px; border-radius: 9px;
-      background: var(--border); color: var(--ink3);
-      font-weight: 600; text-transform: uppercase; letter-spacing: .04em;
-    }
-    .sb-submenu .sb-toggle-state.on {
-      background: var(--accent); color: #fff;
-    }
-
-    /* Sidebar desaparece quando lateral ativa */
-    body.lateral-on .sidebar { display: none; }
-    body.lateral-on { padding-left: 0; }
-
-    /* Toolbar fixa no topo (sticky, abaixo do header) */
-    body.lateral-on .toolbar {
-      display: flex;
-      position: sticky;
-      top: 50px;
-      z-index: 180;
-      background: var(--panel);
-      border-bottom: 1px solid var(--border);
-      box-shadow: var(--shadow);
-    }
-
-    /* Caixa de texto lateral em grid 2 colunas */
-    body.lateral-on .wrap {
-      max-width: none;
-      display: grid;
-      grid-template-columns: 1460px minmax(380px, 1fr);
-      grid-template-rows: auto 1fr;
-      gap: 16px;
-      align-items: start;
-    }
-    /* Janelas mais estreitas: proporção 2/3 seções e 1/3 caixa */
-    @media (max-width: 1900px) {
-      body.lateral-on .wrap {
-        grid-template-columns: 2fr 1fr;
-      }
-    }
-    /* Janela pequena demais — desativa caixa lateral pra evitar quebra */
-    @media (max-width: 1280px) {
-      body.lateral-on .wrap {
-        display: block;
-        max-width: 1500px;
-        margin: 0 auto;
-      }
-      body.lateral-on .wrap > .output-wrap {
-        position: static;
-        max-height: none;
-        margin-top: 12px;
-      }
-    }
-
-    /* Estado ON do botão Caixa Lateral */
-    body.lateral-on #btn-caixa-lateral {
-      background: var(--accent);
-      color: #fff;
-      border-color: var(--accent);
-    }
-
-    /* Footer alinhado com a coluna das checkboxes quando lateral on */
-
-    /* Botão "Sair" no header — aparência clara em fundo escuro */
-    #user-status button {
-      color: rgba(255,255,255,.92) !important;
-      background: rgba(255,255,255,.12) !important;
-      border: 1px solid rgba(255,255,255,.3) !important;
-    }
-    #user-status button:hover {
-      background: rgba(255,255,255,.22) !important;
-      color: #fff !important;
-    }
-    body.lateral-on .wrap > .output-wrap {
-      position: sticky;
-      top: calc(50px + 42px + 12px);
-      margin-top: 0;
-      max-height: calc(100vh - 24px);
-      display: flex;
-      flex-direction: column;
-      grid-row: 1 / span 2;
-      overflow: hidden;
-    }
-    body.lateral-on .wrap > footer {
-      grid-column: 1 / 2;
-      grid-row: 2;
-      align-self: start;
-    }
-    body.lateral-on .wrap > .output-wrap .output-scroll {
-      flex: 1 1 auto;
-      min-height: 0;
-      overflow-y: auto;
-      position: relative;
-    }
-    body.lateral-on .wrap > .output-wrap .text-toolbar {
-      position: sticky;
-      top: 0;
-      z-index: 1;
-    }
-    body.lateral-on .wrap > .output-wrap #output {
-      min-height: 120px;
-    }
-    body.lateral-on .output-bar { display: none; }
-
-    /* Barra inferior na caixa de texto — visível apenas quando lateral ativa */
-    .output-bottom-bar { display: none; }
-    body.lateral-on .output-bottom-bar {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-      padding: 8px 14px;
-      background: var(--row-alt);
-      border-top: 1px solid var(--border);
-    }
-    .tsep { width:1px; height:20px; background:var(--border2); margin:0 3px; }
-
-    /* ── BUTTONS ── */
-    button {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      font-weight: 500;
-      padding: 6px 14px;
-      border: none;
-      border-radius: var(--r);
-      cursor: pointer;
-      transition: background var(--t), transform var(--t);
-      display: inline-flex;
-      align-items: center;
-      gap: 5px;
-      white-space: nowrap;
-    }
-    button:active { transform: scale(.97); }
-
-    .btn-save    { background: var(--accent); color:#fff; padding:6px 18px; box-shadow:0 2px 6px rgba(42,122,82,.3); }
-    .btn-save:hover { background: var(--primary); }
-    .btn-ghost   { background: transparent; color: var(--ink2); border: 1px solid var(--border2); }
-    .btn-ghost:hover { background: var(--accent-l); border-color: var(--accent); color: var(--primary); }
-    .btn-red     { background: transparent; color: var(--danger); border: 1px solid #f0d4d4; }
-    .btn-red:hover { background: var(--danger); color: #fff; }
-    .btn-add     { background: var(--accent); color: #fff; padding:3px 11px; font-size:12.5px; border-radius:4px; }
-    .btn-add:hover { background: var(--primary); }
-    .btn-primary { background: var(--primary); color: #fff; padding: 7px 20px; }
-    .btn-primary:hover { background: var(--primary-h); }
-    .btn-muted   { background: var(--pill-bg); color: var(--ink2); border: 1px solid var(--border); }
-    .btn-muted:hover { background: var(--border); }
-
-    /* ── LAYOUT ── */
-    .wrap {
-      max-width: 1500px;
-      margin: 0 auto;
-      padding: 14px 20px 0;
-    }
-    .main-col {
-      display: flex;
-      flex-direction: column;
-      gap: 12px;
-    }
-
-    /* ── MOBILE / TABLET ── */
-    @media (max-width: 900px) {
-      body { padding-left: 0; }
-      .sidebar { display: none; }
-      .toolbar { display: flex; position: sticky; top: 0; z-index: 50; padding: 8px 10px; gap: 4px; }
-      .wrap { padding: 10px 10px 0; }
-      button { font-size: 12.5px; padding: 6px 10px; }
-      .sec-row { flex-direction: column; }
-      .sec-label { width: 100%; border-right: none; border-bottom: 1px solid var(--border2); padding: 8px 12px; }
-      .sec-content { padding: 8px 10px; }
-      .ctrl-row { padding: 6px; }
-      .item label { font-size: 13px; }
-      .output-wrap { margin-top: 10px; }
-      #output { padding: 12px; font-size: 11pt; }
-      .header-right { display: none; }
-      .app-header { padding: 0 12px; }
-      body.lateral-on .wrap { display: block; }
-      body.lateral-on .wrap > .output-wrap { position: static; max-height: none; }
-      .output-bar { display: flex; }
-    }
-
-    /* ── TABELA DE SEÇÕES ── */
-    .sections-table {
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      box-shadow: var(--shadow);
-      overflow: hidden;
-    }
-
-    .sec-row {
-      display: flex;
-      align-items: flex-start;
-      border-bottom: 1px solid var(--border);
-      transition: background var(--t);
-    }
-    .sec-row:last-child { border-bottom: none; }
-    .sec-row:nth-child(even) { background: var(--row-alt); }
-
-    .sec-label {
-      flex-shrink: 0;
-      width: 128px;
-      padding: 13px 12px 11px 16px;
-      font-size: 11px;
-      font-weight: 600;
-      letter-spacing: .09em;
-      text-transform: uppercase;
-      color: var(--ink3);
-      border-right: 2px solid var(--border2);
-      user-select: none;
-    }
-
-    .sec-content {
-      flex: 1;
-      padding: 8px 14px;
-      display: flex;
-      flex-direction: column;
-      gap: 5px;
-    }
-
-    /* ── SORTABLE ZONE ── */
-    .sortable-zone {
-      display: flex;
-      flex-direction: row;
-      flex-wrap: wrap;
-      gap: 4px;
-      min-height: 8px;
-    }
-
-    /* ── ITEMS ── */
-    .item {
-      display: inline-flex;
-      align-items: center;
-      gap: 6px;
-      background: var(--pill-bg);
-      border: 1px solid var(--border2);
-      border-radius: 6px;
-      padding: 5px 12px 5px 8px;
-      cursor: grab;
-      transition: background var(--t), border-color var(--t), box-shadow var(--t);
-      user-select: none;
-      width: fit-content;
-      max-width: 100%;
-    }
-    .item:hover { background: #fff; border-color: var(--accent); box-shadow: 0 1px 6px rgba(42,122,82,.15); }
-    .item:active { cursor: grabbing; }
-    .item:has(input:checked) { background: #6aaa88; border-color: #5a9a78; }
-    .item:has(input:checked) label { color: #fff; }
-    .item input[type=checkbox] { width: 14px; height: 14px; accent-color: var(--accent); cursor: pointer; flex-shrink: 0; }
-    .item:has(input:checked) input[type=checkbox] { accent-color: #fff; }
-    .item label { font-size: 13.5px; line-height: 1.4; color: var(--ink); cursor: pointer; }
-
-    /* Itens dinâmicos em linha própria */
-    .item.item-dinamico { width: 100%; border-radius: 6px; }
-
-    /* Modificadores (sem texto próprio, apenas alteram outros itens) */
-    .item.item-modificador { background: #dde8e0; border-color: #b3c8b9; }
-
-    /* ── CONTROLES SEDAÇÃO ── */
-    .ctrl-row {
-      display: flex;
-      flex-wrap: wrap;
-      align-items: center;
-      gap: 5px;
-      padding: 6px 10px;
-      background: var(--row-alt);
-      border: 1px solid var(--border);
-      border-radius: var(--r);
-    }
-    .ctrl-row span { font-size: 13px; color: var(--ink3); font-weight: 500; }
-
-    /* ── SELECTS ── */
-    select {
-      font-family: 'DM Sans', sans-serif;
-      font-size: 13px;
-      padding: 3px 6px;
-      border: 1px solid var(--border2);
-      border-radius: 4px;
-      background: var(--panel);
-      color: var(--ink);
-      cursor: pointer;
-      transition: border-color var(--t);
-    }
-    select:focus { outline: none; border-color: var(--accent); }
-
-    /* ── POPUPS ── */
-    .backdrop {
-      display: none;
-      position: fixed; inset: 0;
-      background: rgba(5,20,12,.4);
-      z-index: 9997;
-      backdrop-filter: blur(3px);
-    }
-    .backdrop.show { display: block; }
-
-    .popup {
-      display: none;
-      position: fixed; top: 50%; left: 50%;
-      transform: translate(-50%, -50%);
-      width: min(96vw, 860px);
-      max-height: 88vh;
-      background: var(--panel);
-      border: 1px solid var(--border);
-      border-radius: 10px;
-      padding: 22px 26px 20px;
-      z-index: 9998;
-      box-shadow: var(--shadow-m);
-      overflow-y: auto;
-    }
-    .popup h3 {
-      display: block;
-      font-size: 15px;
-      font-weight: 600;
-      color: var(--primary);
-      margin-bottom: 14px;
-      padding-bottom: 10px;
-      border-bottom: 1px solid var(--border);
-    }
-    #checkbox-list { max-height: 52vh; overflow-y: auto; padding-right: 4px; }
-    .edit-group { padding: 10px 0; border-bottom: 1px solid var(--border); }
-    .edit-group strong { display: block; margin-bottom: 4px; font-size: 11px; text-transform: uppercase; letter-spacing: .07em; color: var(--ink3); }
-    .edit-group input[type=text] { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 5px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 320px; transition: border-color var(--t); }
-    .edit-group textarea, .popup textarea { font-family: 'DM Sans', sans-serif; font-size: 13.5px; padding: 6px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 100%; resize: vertical; transition: border-color var(--t); }
-    .edit-group textarea { height: 60px; margin-top: 4px; }
-    .popup textarea { height: 120px; }
-    .edit-group input:focus, .edit-group textarea:focus, .popup input:focus, .popup textarea:focus { outline: none; border-color: var(--accent); }
-    .popup label { display: block; font-size: 13px; font-weight: 500; color: var(--ink2); margin: 10px 0 4px; }
-    .popup input[type=text] { font-family: 'DM Sans', sans-serif; font-size: 14px; padding: 6px 9px; border: 1px solid var(--border2); border-radius: 5px; background: var(--row-alt); color: var(--ink); width: 100%; }
-    .popup select { font-size: 13.5px; padding: 5px 8px; margin-bottom: 2px; }
-    .popup-footer { display: flex; gap: 7px; margin-top: 14px; flex-wrap: wrap; }
-
-    /* ── OUTPUT ── */
-    .output-wrap { margin-top: 12px; background: var(--panel); border: 1px solid var(--border); border-radius: 10px; box-shadow: var(--shadow); }
-    .output-bar { background: var(--row-alt); border-bottom: 1px solid var(--border); padding: 8px 14px; display: flex; gap: 6px; flex-wrap: wrap; }
-    .text-toolbar { display: flex; align-items: center; gap: 4px; padding: 8px 14px; background: var(--panel); border-bottom: 1px solid var(--border2); }
-    .text-toolbar select { font-size: 12px; padding: 2px 4px; border: 1px solid var(--border); border-radius: 3px; }
-    .text-toolbar button { font-size: 12px; padding: 2px 6px; border: 1px solid var(--border); background: var(--panel); border-radius: 3px; cursor: pointer; }
-    .text-toolbar button:hover { background: var(--row-alt); }
-    #output { font-family: Arial, sans-serif; font-size: 12pt; line-height: 1.3; padding: 16px 20px; min-height: 220px; outline: none; white-space: pre-wrap; color: var(--ink); }
-    #output:focus { background: #fdfffe; }
-
-    /* ── TOAST ── */
-    #toast { position: fixed; bottom: 24px; left: 50%; transform: translateX(-50%) translateY(70px); background: var(--primary); color: #c8eedd; padding: 10px 22px; border-radius: 14px; font-size: 13px; font-weight: 500; box-shadow: 0 4px 18px rgba(0,0,0,.22); z-index: 99999; opacity: 0; pointer-events: none; transition: transform .2s ease, opacity .2s ease; white-space: normal; max-width: 92vw; text-align: center; line-height: 1.5; }
-    #toast.show { transform: translateX(-50%) translateY(0); opacity: 1; }
-
-    footer {
-      position: relative;
-      text-align: center;
-      padding: 10px 20px;
-      font-size: 11px;
-      color: var(--ink3);
-      font-family: 'DM Mono', monospace;
-      letter-spacing: .04em;
-      background: var(--bg);
-      border-top: 1px solid var(--border);
-      z-index: 1;
-    }
-
-    /* Quando sidebar ativa, footer à direita */
-    body:not(.lateral-on) footer { left: auto; }
-
-    ::-webkit-scrollbar { width: 5px; height: 5px; }
-    ::-webkit-scrollbar-track { background: transparent; }
-    ::-webkit-scrollbar-thumb { background: var(--border2); border-radius: 3px; }
-
-    /* drag via pointer events — sem jQuery UI */
-    [data-ph="1"] { pointer-events: none; }
-    .sortable-zone { cursor: grab; }
-    .sortable-zone:active { cursor: grabbing; }
-
-    /* ── USER STATUS (header) ── */
-    .header-right { display:flex; align-items:center; gap:10px; }
-    #save-indicator { font-family:'DM Mono',monospace; font-size:11px; color:rgba(255,255,255,.45); transition:opacity .3s; }
-    #user-status { display:flex; align-items:center; gap:7px; }
-    .user-email { font-family:'DM Mono',monospace; font-size:11px; color:rgba(255,255,255,.88); background:rgba(255,255,255,.1); padding:3px 10px; border-radius:20px; border:1px solid rgba(255,255,255,.18); }
-    .btn-xs { font-size:11.5px !important; padding:3px 9px !important; }
-    .btn-autosave-on { box-shadow:0 0 0 2px rgba(255,255,255,.25) !important; }
-
-    /* ── AUTH OVERLAY ── */
-    #auth-overlay {
-      display:none; position:fixed; inset:0;
-      background:var(--bg); z-index:99999;
-      align-items:center; justify-content:center;
-    }
-    #auth-overlay.show { display:flex; }
-    #auth-box {
-      background:var(--panel); border:1px solid var(--border);
-      border-radius:12px; padding:32px 36px;
-      width:min(92vw,380px); box-shadow:var(--shadow-m); text-align:center;
-    }
-    .auth-logo { font-size:34px; margin-bottom:6px; }
-    #auth-box h2 { font-size:16px; font-weight:600; color:var(--primary); margin-bottom:20px; }
-    .auth-tabs { display:flex; border-bottom:2px solid var(--border); margin-bottom:18px; }
-    .auth-tab {
-      flex:1; background:transparent; border:none;
-      border-bottom:2px solid transparent; margin-bottom:-2px;
-      padding:7px; font-family:'DM Sans',sans-serif; font-size:13.5px;
-      font-weight:500; color:var(--ink3); cursor:pointer;
-      transition:color var(--t),border-color var(--t);
-    }
-    .auth-tab.active { color:var(--primary); border-bottom-color:var(--primary); }
-    #auth-box input[type=email],
-    #auth-box input[type=password] {
-      display:block; width:100%; font-family:'DM Sans',sans-serif;
-      font-size:14px; padding:9px 12px;
-      border:1px solid var(--border2); border-radius:6px;
-      background:var(--row-alt); color:var(--ink); margin-bottom:10px;
-      transition:border-color var(--t);
-    }
-    #auth-box input:focus { outline:none; border-color:var(--accent); }
-    .btn-full { width:100%; justify-content:center; padding:9px !important; margin-top:2px; }
-    .btn-link {
-      background:none; border:none; color:var(--ink3);
-      font-size:12.5px; cursor:pointer; margin-top:10px;
-      padding:0; font-family:'DM Sans',sans-serif;
-      text-decoration:underline; text-underline-offset:2px;
-    }
-    .btn-link:hover { color:var(--accent); }
-    #auth-erro { color:var(--danger); font-size:13px; margin-top:10px; min-height:18px; text-align:left; }
-  </style>
 </head>
 <body>
 
@@ -613,7 +93,7 @@
 <div id="auth-overlay">
   <div id="auth-box">
     <div class="auth-logo">📑</div>
-    <h2>Gerador de Laudo EDA</h2>
+    <h2>Gera Laudo - EDA</h2>
     <div class="auth-tabs">
       <button class="auth-tab active" id="tab-entrar"    onclick="mostrarTabAuth('entrar')">Entrar</button>
       <button class="auth-tab"        id="tab-cadastrar" onclick="mostrarTabAuth('cadastrar')">Cadastrar</button>
@@ -652,36 +132,76 @@
 
   <div class="sb-section-label">Geral</div>
   <button class="btn-save" onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
-  <button class="btn-ghost" id="btn-caixa-lateral" onclick="toggleCaixaLateral(); refrescarMenuSalvar()" title="Caixa de texto lateral"><span id="sb-state-lateral" hidden></span>📐 Caixa Lateral</button>
+  <button class="btn-ghost" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
 
   <div class="sb-divider"></div>
   <div class="sb-section-label">Histórico</div>
-  <button class="btn-ghost" id="btn-desfazer"  onclick="desfazer()"  title="Desfazer (Ctrl+Z)" disabled>↶ Desfazer</button>
-  <button class="btn-ghost" id="btn-refazer"   onclick="refazer()"   title="Refazer (Ctrl+Y)"  disabled>↷ Refazer</button>
+  <button class="btn-ghost btn-hist" id="btn-desfazer"  onclick="desfazer()"  title="Desfazer (Ctrl+Z)" disabled><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg><span class="btn-hist-label">Desfazer</span></button>
+  <button class="btn-ghost btn-hist" id="btn-refazer"   onclick="refazer()"   title="Refazer (Ctrl+Y)"  disabled><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg><span class="btn-hist-label">Refazer</span></button>
   <button class="btn-ghost" id="btn-recuperar" onclick="recuperarUltimoLaudo()" title="Restaurar o estado do último laudo na sessão" disabled>↺ Último Laudo</button>
 
   <div class="sb-divider"></div>
-  <div class="sb-section-label">Itens</div>
-  <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
-  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
-  <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
-
-  <div class="sb-divider"></div>
   <div class="sb-section-label">Laudo</div>
+  <button class="btn-ghost" onclick="salvarDados()" title="Salvar agora">💾 Salvar agora</button>
+  <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
   <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-  <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
-  <button class="btn-ghost"   onclick="uncheckAll()">✕ Limpar</button>
+  <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
+  <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
 </aside>
 
 <div class="sb-submenu" id="sb-menu-salvar">
+  <button id="btn-toggle-caixa-menu" onclick="toggleCaixaLateral(); fecharMenuSalvar()"><span id="sb-state-lateral-menu" hidden></span>📐 <span id="btn-toggle-caixa-label">Caixa Lateral</span></button>
+  <div class="sb-divider"></div>
   <button onclick="salvarDados(); fecharMenuSalvar()">💾 Salvar agora</button>
+
+  <button class="sb-folder-toggle" id="sb-folder-toggle-salvar" onclick="toggleSubpasta('salvar', event)">
+    💾 Salvar <span class="sb-folder-arrow">▸</span>
+  </button>
+  <button class="sb-folder-toggle" id="sb-folder-toggle-carregar" onclick="toggleSubpasta('carregar', event)">
+    📂 Carregar <span class="sb-folder-arrow">▸</span>
+  </button>
+
+  <div class="sb-divider"></div>
   <button onclick="toggleAutoSave(); refrescarMenuSalvar()">🔄 Auto-save <span class="sb-toggle-state" id="sb-state-autosave">OFF</span></button>
+  <button onclick="toggleEfeitosVisuais();" id="btn-toggle-efeitos">✨ Efeitos visuais <span class="sb-toggle-state" id="sb-state-efeitos">ON</span></button>
   <button onclick="abrirPopupAdmin(); fecharMenuSalvar()" id="btn-admin-codigos" style="display:none">🔑 Código de Acesso</button>
 </div>
 
+<div class="sb-submenu sb-submenu-lateral" id="sb-submenu-salvar">
+  <button class="sb-submenu-item sb-slot-btn" onclick="salvarSlot(1); fecharMenuSalvar()" id="sb-salvar-slot1">📥 Slot 1</button>
+  <button class="sb-submenu-item sb-slot-btn" onclick="salvarSlot(2); fecharMenuSalvar()" id="sb-salvar-slot2">📥 Slot 2</button>
+</div>
+
+<div class="sb-submenu sb-submenu-lateral" id="sb-submenu-carregar">
+  <button class="sb-submenu-item sb-slot-btn" onclick="carregarSlot(1); fecharMenuSalvar()" id="sb-carregar-slot1">📂 Slot 1</button>
+  <button class="sb-submenu-item sb-slot-btn" onclick="carregarSlot(2); fecharMenuSalvar()" id="sb-carregar-slot2">📂 Slot 2</button>
+  <button class="sb-submenu-item" onclick="retornarAoInicial(); fecharMenuSalvar()">↩ Carregar itens padrão</button>
+</div>
+
+<!-- Submenu flutuante "Editar ▾" -->
+<div class="sb-submenu" id="sb-menu-editar">
+  <button onclick="showCreatePopup(); fecharMenuEditar()">＋ Criar item</button>
+  <button onclick="showPopup(); fecharMenuEditar()">✎ Editar item</button>
+  <button onclick="_toggleEditOptsMode(); fecharMenuEditar()" title="Ligar/desligar edição das listas de dropdown (lápis ✎)">⚙ Editar listas</button>
+  <button onclick="deleteCheckedCheckboxes(); fecharMenuEditar()">🗑 Excluir</button>
+</div>
+
 <header class="app-header">
-  <h1>📑 <em>Gerador de Laudo:</em> ENDOSCOPIA DIGESTIVA ALTA</h1>
+  <h1>📑 Gera Laudo - EDA</h1>
   <div class="header-right">
+    <div class="header-actions">
+      <button class="btn-header btn-icon" onclick="salvarDados()" title="Salvar agora" aria-label="Salvar">💾</button>
+      <button class="btn-header" onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
+      <button class="btn-header" onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
+      <button class="btn-header" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
+      <button class="btn-header btn-hist" onclick="desfazer()" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
+      </button>
+      <button class="btn-header btn-hist" onclick="refazer()" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>
+        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
+      </button>
+      <button class="btn-header" onclick="recuperarUltimoLaudo()" title="Restaurar o último laudo" disabled>↺ Último laudo</button>
+    </div>
     <span id="save-indicator"></span>
     <div id="user-status"></div>
   </div>
@@ -690,16 +210,15 @@
 <!-- TOOLBAR (legacy — visível só no mobile) -->
 <div class="toolbar">
   <button class="btn-save"  onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
-  <button class="btn-ghost" onclick="toggleCaixaLateral(); refrescarMenuSalvar()" title="Caixa de texto lateral">📐 Caixa Lateral</button>
-  <button class="btn-ghost" onclick="desfazer()" title="Ctrl+Z">↶ Desfazer</button>
-  <button class="btn-ghost" onclick="refazer()" title="Ctrl+Y">↷ Refazer</button>
+  <button class="btn-ghost" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
+  <button class="btn-ghost btn-hist" onclick="desfazer()" title="Desfazer (Ctrl+Z)"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg><span class="btn-hist-label">Desfazer</span></button>
+  <button class="btn-ghost btn-hist" onclick="refazer()" title="Refazer (Ctrl+Y)"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg><span class="btn-hist-label">Refazer</span></button>
   <button class="btn-ghost" onclick="recuperarUltimoLaudo()">↺ Último Laudo</button>
-  <button class="btn-ghost" onclick="showPopup()">✏️ Editar</button>
-  <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
-  <button class="btn-ghost" onclick="showCreatePopup()">＋ Criar</button>
-  <button class="btn-primary" style="margin-left:auto;" onclick="copiarConteudo()">📄 Copiar texto</button>
-  <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
-  <button class="btn-ghost"   onclick="uncheckAll()">✕ Limpar</button>
+  <button class="btn-ghost btn-icon" style="margin-left:auto;" onclick="salvarDados()" title="Salvar agora" aria-label="Salvar">💾</button>
+  <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
+  <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
+  <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
+  <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
 </div>
 
 <div id="toast"></div>
@@ -708,10 +227,28 @@
 <!-- POPUP EDITAR -->
 <div class="popup" id="popup">
   <h3>✏️ Editar Item</h3>
+  <div id="popup-format-toolbar">
+    <button class="fmt-btn fmt-btn-bold" data-cmd="bold" title="Negrito Ctrl+B"><b>B</b></button>
+    <button class="fmt-btn fmt-btn-italic" data-cmd="italic" title="Itálico Ctrl+I"><i>I</i></button>
+    <button class="fmt-btn fmt-btn-underline" data-cmd="underline" title="Sublinhado Ctrl+U"><u>U</u></button>
+    <span class="fmt-separator"></span>
+    <button class="fmt-btn fmt-btn-align" data-cmd="justifyLeft" title="Alinhar à esquerda">
+      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="12" height="1.5" rx=".75"/><rect x="1" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+    </button>
+    <button class="fmt-btn fmt-btn-align" data-cmd="justifyCenter" title="Centralizar">
+      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="3" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="4" y="9" width="12" height="1.5" rx=".75"/><rect x="2" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+    </button>
+    <button class="fmt-btn fmt-btn-align" data-cmd="justifyRight" title="Alinhar à direita">
+      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="5" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="7" y="9" width="12" height="1.5" rx=".75"/><rect x="3" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+    </button>
+    <button class="fmt-btn fmt-btn-align" data-cmd="justifyFull" title="Justificar">
+      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="18" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="18" height="1.5" rx=".75"/><rect x="1" y="12.5" width="18" height="1.5" rx=".75"/></svg>
+    </button>
+  </div>
   <div id="checkbox-list"></div>
   <div class="popup-footer">
-    <button class="btn-ghost" onclick="fecharTodosPopups()">Fechar</button>
-    <button class="btn-red"   onclick="deleteCheckedCheckboxes()">🗑 Excluir</button>
+    <button class="btn-primary" onclick="salvarItemEditado()">💾 Salvar</button>
+    <button class="btn-ghost"   onclick="cancelarItemEditado()">Cancelar</button>
   </div>
 </div>
 
@@ -719,7 +256,9 @@
 <div class="popup" id="create-popup">
   <h3>＋ Criar Novo Item</h3>
   <label for="section-select">Seção</label>
-  <select id="section-select">
+  <select id="section-select" onchange="toggleAnatomoTipo()">
+    <option value="sortable-custom1" id="opt-custom1" hidden>Seção 1 (após o título)</option>
+    <option value="sortable-custom3" id="opt-custom3" hidden>Seção 2 (após o título)</option>
     <option value="sortable-equipamento">Equipamento</option>
     <option value="sortable-sedacao">Sedação</option>
     <option value="sortable-esofago">Esôfago</option>
@@ -727,8 +266,18 @@
     <option value="sortable-duodeno">Duodeno</option>
     <option value="sortable-jejuno">Jejuno</option>
     <option value="sortable-conclusao">Conclusão</option>
+    <option value="sortable-custom2" id="opt-custom2" hidden>Seção 1 (rodapé)</option>
+    <option value="sortable-custom4" id="opt-custom4" hidden>Seção 2 (rodapé)</option>
+    <option value="sortable-anatomo">Anatomo</option>
     <option value="sortable-outros">Outros</option>
   </select>
+  <div id="anatomo-tipo-group" style="display:none;">
+    <label for="anatomo-tipo">Tipo (somente seção Anatomo)</label>
+    <select id="anatomo-tipo">
+      <option value="frasco">Frasco (numerado)</option>
+      <option value="rodape">Nota de rodapé (texto no fim, sem número)</option>
+    </select>
+  </div>
   <label for="checkbox-type">Tipo de item</label>
   <select id="checkbox-type" onchange="toggleModifierFields(this.value)">
     <option value="normal" selected>Normal</option>
@@ -746,12 +295,55 @@
     <label for="checkbox-replace">Texto final</label>
     <textarea id="checkbox-replace" placeholder="Texto final que substituirá o original…"></textarea>
   </div>
+  <div id="checkbox-conclusao-group" style="display:none;">
+    <label for="checkbox-conclusao">Texto da Conclusão (opcional)</label>
+    <textarea id="checkbox-conclusao" placeholder="Texto que será inserido na seção Conclusão…"></textarea>
+  </div>
   <div class="popup-footer">
     <button class="btn-primary" onclick="createCheckbox()">✅ Criar</button>
     <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
   </div>
 </div>
 
+
+<!-- POPUP EDITOR DE OPÇÕES DE DROPDOWN -->
+<div class="popup" id="popup-edit-options">
+  <h3 id="popup-edit-options-title">Editar opções</h3>
+  <div class="opt-editor-legenda">
+    <strong>Label</strong>: como aparece no dropdown (curto). <strong>Valor</strong>: texto inserido no laudo.
+  </div>
+  <div id="popup-edit-options-body"></div>
+  <div class="popup-footer">
+    <button class="btn-primary" onclick="salvarOptionsEditadas()">💾 Salvar</button>
+    <button class="btn-muted"   onclick="restaurarOptionsPadrao()" title="Restaurar lista ao template do administrador">↺ Restaurar padrão</button>
+    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
+  </div>
+</div>
+
+<!-- POPUP EDITOR DE ESTRUTURA (esqueleto das frases dos painéis) -->
+<div class="popup" id="popup-edit-estrutura">
+  <h3 id="popup-edit-estrutura-title">Editar estrutura</h3>
+  <div class="opt-editor-legenda"></div>
+  <div id="popup-edit-estrutura-body"></div>
+  <div class="popup-footer">
+    <button class="btn-primary" onclick="salvarEstruturaEditada()">💾 Salvar</button>
+    <button class="btn-muted"   onclick="restaurarEstruturaPadrao()" title="Restaurar a estrutura ao template do administrador">↺ Restaurar padrão</button>
+    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
+  </div>
+</div>
+
+<!-- POPUP EDIT MUCOSA ESTADO — editor especializado para Gastrite mucosa -->
+<div class="popup" id="popup-edit-mucosa-estado">
+  <div class="popup-content">
+    <h3 class="popup-title">Gastrite · Mucosa Estado</h3>
+    <div class="editor-items"></div>
+    <div class="popup-footer">
+      <button class="btn" onclick="adicionarLinhaMucosaEstado()">＋ Adicionar item</button>
+      <button class="btn-primary" onclick="salvarMucosaEstadoEditada()">💾 Salvar</button>
+      <button class="btn-ghost" onclick="fecharPopupMucosaEstado()">Cancelar</button>
+    </div>
+  </div>
+</div>
 
 <!-- POPUP ADMIN — gerenciar códigos de acesso -->
 <div class="popup" id="admin-popup">
@@ -773,9 +365,49 @@
   </div>
 </div>
 
+<!-- POPUP EDITOR DE FORMATO / TEMPLATE -->
+<div class="popup" id="popup-formato">
+  <div class="fmt-toolbar-top">
+    <h3>🎛 Formato do laudo</h3>
+    <div class="fmt-row fmt-perfil-row">
+      <label for="fmt-perfil">Perfil ativo</label>
+      <select id="fmt-perfil"></select>
+    </div>
+    <div class="fmt-actions">
+      <button type="button" class="btn" id="fmt-novo">＋ Novo</button>
+      <button type="button" class="btn" id="fmt-duplicar">⧉ Duplicar</button>
+      <button type="button" class="btn" id="fmt-renomear">✎ Renomear</button>
+      <button type="button" class="btn-red" id="fmt-excluir">🗑 Excluir</button>
+    </div>
+  </div>
+  <div class="fmt-scroll">
+    <p class="fmt-legenda">Personalize a apresentação do laudo (fonte, cabeçalhos, espaçamento, título, conclusão) e salve como perfis reutilizáveis.</p>
+    <div id="fmt-embutido-aviso" class="fmt-aviso" hidden>Perfil embutido (somente leitura). Use &ldquo;Duplicar&rdquo; para criar um perfil editável.</div>
+    <div id="fmt-campos"></div>
+  </div>
+  <div class="fmt-toolbar-bottom">
+    <button type="button" class="btn-ghost" id="fmt-cancelar">Cancelar</button>
+    <button type="button" class="btn-primary" id="fmt-salvar">💾 Salvar</button>
+  </div>
+</div>
+
 <div class="wrap">
   <div class="main-col">
     <div class="sections-table">
+
+    <!-- SEÇÕES PERSONALIZADAS — após o título no laudo; ocultas até ativação -->
+    <div class="sec-row secao-custom oculta" id="sec-row-custom1">
+      <div class="sec-label" id="sec-label-custom1">Seção 1 (após o título)</div>
+      <div class="sec-content" id="Custom1">
+        <div id="sortable-custom1" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+    <div class="sec-row secao-custom oculta" id="sec-row-custom3">
+      <div class="sec-label" id="sec-label-custom3">Seção 2 (após o título)</div>
+      <div class="sec-content" id="Custom3">
+        <div id="sortable-custom3" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
 
     <!-- EQUIPAMENTO -->
     <div class="sec-row">
@@ -794,10 +426,11 @@
           <div class="item ui-sortable-handle" style="cursor:default;border-radius:6px;width:fit-content;">
             <div class="ctrl-row" style="border:none;padding:0;background:transparent;">
               <span>Fentanil</span>
-              <select id="fentanil"></select>
+              <select id="fentanil"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('fentanil','Sedação · Fentanil','sedacaoSelects','fentanil',false)">✎</button>
               <span>+ Midazolam</span>
-              <select id="midazolam"></select>
+              <select id="midazolam"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('midazolam','Sedação · Midazolam','sedacaoSelects','midazolam',false)">✎</button>
               <span>+ Propofol titulado</span>
+              <button class="btn-edit-opt" title="Editar estrutura da frase (Sedação)" onclick="editarEstrutura('sedacao')">✎ estrutura</button>
               <button class="btn-add" onclick="addParametersedacao()">＋</button>
             </div>
           </div>
@@ -808,8 +441,93 @@
     <!-- ESÔFAGO -->
     <div class="sec-row">
       <div class="sec-label">Esôfago</div>
-      <div class="sec-content" id="Esôfago">
+      <div class="sec-content esofago-geral-em-linha" id="Esôfago">
+        <!-- Esôfago: botões Esofagite + Barrett; corpos colapsáveis abaixo.
+             Esofagite aberto por padrão; accordion por seção (um aberto por vez). -->
+        <div class="painel-grupo">
+          <div class="painel-botoes">
+            <button type="button" class="painel-toggle" data-painel="painel-esofago-esofagite" aria-expanded="true" aria-controls="painel-esofago-esofagite-corpo" onclick="togglePainel('painel-esofago-esofagite')">
+              <span class="painel-tag">Geral</span>
+              <span class="painel-chevron" aria-hidden="true">▾</span>
+            </button>
+            <button type="button" class="painel-toggle" data-painel="painel-esofago-barrett" aria-expanded="false" aria-controls="painel-esofago-barrett-corpo" onclick="togglePainel('painel-esofago-barrett')">
+              <span class="painel-tag">Barrett</span>
+              <span class="painel-chevron" aria-hidden="true">▾</span>
+            </button>
+          </div>
+
+          <!-- Esofagite (corpo, aberto por padrão) -->
+          <div class="painel-estomago painel-colapsavel" id="painel-esofago-esofagite">
+            <div class="painel-colapsavel-corpo" id="painel-esofago-esofagite-corpo">
+              <div class="painel-colapsavel-inner" style="overflow:visible">
+          <div class="ctrl-row">
+            <span>Item:</span>
+            <select id="esof-item"></select><button class="btn-edit-opt" title="Editar itens" onclick="editarOptions('esof-item','Esôfago · Esofagite (itens)','esofagoPainel','itensEsofagite',false)">✎</button>
+
+            <span>HHD</span><input type="text" inputmode="decimal" id="esof-hhd" data-min="0" autocomplete="off" style="width:62px;">
+
+            <span>Achado:</span>
+            <select id="esof-modif" multiple class="atr-modif-hidden"></select><span id="esof-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('esof-modif','Esôfago · Modificadores (Esofagite)','esofagoPainel','modificadoresEsofagite',true,true)">✎</button>
+
+            <button class="btn-add" onclick="addEsofagiteParagrafo()">＋</button>
+          </div>
+          <div class="ctrl-row painel-varizes is-collapsed" id="esof-varizes-wrap">
+            <span class="painel-tag">Varizes:</span>
+            <span>Número</span><select id="esof-variz-numero"></select>
+            <span>Localização</span><select id="esof-variz-localizacao"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-localizacao','Esôfago · Varizes (localização)','esofagoPainel','varizes.localizacao',false)">✎</button>
+            <span>Trajeto</span><select id="esof-variz-morfologia"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-morfologia','Esôfago · Varizes (trajeto)','esofagoPainel','varizes.morfologia',false)">✎</button>
+            <span>Calibre</span><select id="esof-variz-calibre"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-calibre','Esôfago · Varizes (calibre)','esofagoPainel','varizes.calibre',false)">✎</button>
+            <span>Coloração</span><select id="esof-variz-coloracao"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-coloracao','Esôfago · Varizes (coloração)','esofagoPainel','varizes.coloracao',false)">✎</button>
+            <span>Cor vermelha</span><select id="esof-variz-sinais"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-sinais','Esôfago · Varizes (sinais de cor vermelha)','esofagoPainel','varizes.sinaisCorVermelha',false)">✎</button>
+            <span>Retrações</span><select id="esof-variz-retracoes"></select>
+            <span>Ligadura</span><select id="esof-variz-ligadura" onchange="_esofVarizesToggleBandas()"></select>
+            <span id="esof-variz-bandas-wrap"><span>Bandas</span><select id="esof-variz-bandas"></select></span>
+            <button class="btn-edit-opt" title="Editar estrutura da frase (Varizes)" onclick="editarEstrutura('varizes')">✎ estrutura</button>
+            <button class="btn-add" onclick="addEsofagiteParagrafo()">＋</button>
+          </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Barrett (corpo, colapsado) -->
+          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-esofago-barrett">
+            <div class="painel-colapsavel-corpo" id="painel-esofago-barrett-corpo">
+              <div class="painel-colapsavel-inner">
+          <div class="ctrl-row">
+            <span>Circunf.</span><input type="text" inputmode="decimal" id="barrett-x" data-min="0" autocomplete="off" style="width:62px;" oninput="_barrettSyncMin()">
+            <span>Digit.</span><input type="text" inputmode="decimal" id="barrett-y" data-min="0" autocomplete="off" style="width:62px;">
+            <span>HHD</span><input type="text" inputmode="decimal" id="barrett-hhd" data-min="0" autocomplete="off" style="width:62px;">
+
+            <span>Inflamação:</span>
+            <select id="barrett-inflamacao">
+              <option value="">não</option>
+              <option value="Notam-se erosões na junção escamocolunar.">sim</option>
+            </select>
+
+            <span>Aval. compl.:</span>
+            <select id="barrett-aval" multiple class="atr-modif-hidden"></select><span id="barrett-aval-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar avaliação complementar" onclick="editarOptions('barrett-aval','Esôfago · Barrett (avaliação complementar)','esofagoPainel','barrettAvaliacao',false)">✎</button>
+
+            <span>Displasia:</span>
+            <select id="barrett-displasia" onchange="_barrettToggleInline()">
+              <option value="nao">sem displasia</option>
+              <option value="sim">área suspeita</option>
+            </select>
+            <span id="barrett-paredes-wrap"></span>
+            <button class="btn-edit-opt" title="Editar paredes" onclick="editarOptions('','Esôfago · Barrett (paredes)','esofagoPainel','barrettParedes',false)">✎ paredes</button>
+
+            <span>Biópsias:</span>
+            <select id="barrett-bio" multiple class="atr-modif-hidden"></select><span id="barrett-bio-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar biópsias" onclick="editarOptions('barrett-bio','Esôfago · Barrett (biópsias)','esofagoPainel','barrettBiopsia',false)">✎</button>
+
+            <button class="btn-edit-opt" title="Editar conclusões (Barrett)" onclick="editarOptions('','Esôfago · Conclusões (Barrett)','esofagoPainel','templatesConclusaoBarrett',false)">✎ conclusão</button>
+            <button class="btn-edit-opt" title="Editar estrutura das frases (Barrett)" onclick="editarEstrutura('barrett')">✎ estrutura</button>
+            <button class="btn-add" onclick="addBarrettParagrafo()">＋</button>
+          </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="sortable-esofago" class="sortable-zone ui-sortable"></div>
+        <!-- /Barrett -->
       </div>
     </div>
 
@@ -817,7 +535,122 @@
     <div class="sec-row">
       <div class="sec-label">Estômago</div>
       <div class="sec-content" id="Estômago">
+        <!-- Estômago: botões Gastrite + Atrofia + Lesão; corpos colapsáveis abaixo.
+             Gastrite aberto por padrão; accordion por seção (um aberto por vez). -->
+        <div class="painel-grupo">
+          <div class="painel-botoes">
+            <button type="button" class="painel-toggle" data-painel="painel-estomago-gastrite" aria-expanded="true" aria-controls="painel-estomago-gastrite-corpo" onclick="togglePainel('painel-estomago-gastrite')">
+              <span class="painel-tag">Gastrite</span>
+              <span class="painel-chevron" aria-hidden="true">▾</span>
+            </button>
+            <button type="button" class="painel-toggle" data-painel="painel-estomago-atrofia" aria-expanded="false" aria-controls="painel-estomago-atrofia-corpo" onclick="togglePainel('painel-estomago-atrofia')">
+              <span class="painel-tag">Atrofia</span>
+              <span class="painel-chevron" aria-hidden="true">▾</span>
+            </button>
+            <button type="button" class="painel-toggle" data-painel="painel-estomago-lesao" aria-expanded="false" aria-controls="painel-estomago-lesao-corpo" onclick="togglePainel('painel-estomago-lesao')">
+              <span class="painel-tag">Lesão</span>
+              <span class="painel-chevron" aria-hidden="true">▾</span>
+            </button>
+          </div>
+
+          <!-- Gastrite (corpo, aberto por padrão) -->
+          <div class="painel-estomago painel-colapsavel" id="painel-estomago-gastrite">
+            <div class="painel-colapsavel-corpo" id="painel-estomago-gastrite-corpo">
+              <div class="painel-colapsavel-inner" style="overflow:visible">
+          <div class="ctrl-row">
+            <span>Vol.</span>
+            <select id="gastr-liquido-vol"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-liquido-vol','Estômago · Volume','estomagoPainel','liquidoVolume',false)">✎</button>
+            <span>Líq.</span>
+            <select id="gastr-liquido-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-liquido-tipo','Estômago · Líquido (tipo)','estomagoPainel','liquidoTipo',false)">✎</button>
+
+            <span>Pregueado:</span>
+            <select id="gastr-pregueado"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-pregueado','Estômago · Pregueado','estomagoPainel','pregueado',false)">✎</button>
+
+            <span>Corpo:</span>
+            <select id="gastr-corpo-estado" onchange="_atualizarMucosaDet('gastr','corpo')"></select><button class="btn-edit-opt" title="Editar opções" onclick="_editarMucosaDet('gastr','corpo')">✎</button>
+            <select id="gastr-corpo-det"></select><button class="btn-edit-opt" title="Editar opções" id="gastr-corpo-det-edit" onclick="_editarMucosaDet('gastr','corpo')">✎</button>
+
+            <span>Antro:</span>
+            <select id="gastr-antro-estado" onchange="_atualizarMucosaDet('gastr','antro')"></select><button class="btn-edit-opt" title="Editar opções" onclick="_editarMucosaDet('gastr','antro')">✎</button>
+            <select id="gastr-antro-det"></select><button class="btn-edit-opt" title="Editar opções" id="gastr-antro-det-edit" onclick="_editarMucosaDet('gastr','antro')">✎</button>
+
+            <span>Achado:</span>
+            <select id="gastr-modif" multiple class="atr-modif-hidden"></select><span id="gastr-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('gastr-modif','Estômago · Modificadores (Gastrite)','estomagoPainel','modificadoresGastrite',true,true)">✎</button>
+
+            <button class="btn-edit-opt" title="Editar textos das conclusões (Gastrite)" onclick="editarOptions('','Estômago · Conclusões (Gastrite)','estomagoPainel','templatesConclusaoGastrite',false)">✎ conclusão</button>
+            <button class="btn-edit-opt" title="Editar estrutura das frases (Gastrite)" onclick="editarEstrutura('gastrite')">✎ estrutura</button>
+            <button class="btn-add" onclick="addGastriteParagrafo()">＋</button>
+          </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Atrofia (corpo) -->
+          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-estomago-atrofia">
+            <div class="painel-colapsavel-corpo" id="painel-estomago-atrofia-corpo">
+              <div class="painel-colapsavel-inner">
+          <div class="ctrl-row">
+            <span>Vol.</span>
+            <select id="atr-liquido-vol"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-liquido-vol','Estômago · Volume','estomagoPainel','liquidoVolume',false)">✎</button>
+            <span>Líq.</span>
+            <select id="atr-liquido-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-liquido-tipo','Estômago · Líquido (tipo)','estomagoPainel','liquidoTipo',false)">✎</button>
+
+            <span>KT:</span>
+            <select id="atr-kt"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-kt','Estômago · Atrofia KT','estomagoPainel','atrofiaKT',false)">✎</button>
+
+            <span>Achado:</span>
+            <select id="atr-modif" multiple class="atr-modif-hidden"></select><span id="atr-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('atr-modif','Estômago · Modificadores (Atrofia)','estomagoPainel','modificadoresAtrofia',true,true)">✎</button>
+
+            <button class="btn-edit-opt" title="Editar textos das conclusões (Atrofia)" onclick="editarOptions('','Estômago · Conclusões (Atrofia)','estomagoPainel','templatesConclusaoAtrofia',false)">✎ conclusão</button>
+            <button class="btn-edit-opt" title="Editar estrutura das frases (Atrofia)" onclick="editarEstrutura('atrofia')">✎ estrutura</button>
+            <button class="btn-add" onclick="addAtrofiaParagrafo()">＋</button>
+          </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Lesão (corpo) -->
+          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-estomago-lesao">
+            <div class="painel-colapsavel-corpo" id="painel-estomago-lesao-corpo">
+              <div class="painel-colapsavel-inner">
+          <div class="ctrl-row">
+            <span>Parede</span>
+            <select id="lesao-gastr-parede"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-parede','Estômago · Lesão (parede)','estomagoPainel','lesoesParede',false)">✎</button>
+
+            <span>Segmento</span>
+            <select id="lesao-gastr-segmento"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-segmento','Estômago · Lesão (segmento)','estomagoPainel','lesoesSegmento',false)">✎</button>
+
+            <span>Lesão</span>
+            <select id="lesao-gastr-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-tipo','Estômago · Lesão (tipo)','estomagoPainel','lesoesTipo',false)">✎</button>
+
+            <span>Tamanho</span><input type="text" inputmode="decimal" id="lesao-gastr-tamanho" data-min="1" autocomplete="off" style="width:62px;" placeholder="mm">
+
+            <span>Magnif.</span>
+            <select id="lesao-gastr-magnificacao" onchange="_lesaoGastrToggleMagnif()"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-magnificacao','Estômago · Lesão (magnificação)','estomagoPainel','lesoesMagnificacao',false)">✎</button>
+
+            <span class="lesao-gastr-magnif-dep">DL</span>
+            <select id="lesao-gastr-dl" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-dl','Estômago · Lesão (DL)','estomagoPainel','lesoesDL',false)">✎</button>
+
+            <span class="lesao-gastr-magnif-dep">MV</span>
+            <select id="lesao-gastr-mv" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-mv','Estômago · Lesão (MV)','estomagoPainel','lesoesMV',false)">✎</button>
+
+            <span class="lesao-gastr-magnif-dep">MS</span>
+            <select id="lesao-gastr-ms" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-ms','Estômago · Lesão (MS)','estomagoPainel','lesoesMS',false)">✎</button>
+
+            <span>Procedimento</span>
+            <select id="lesao-gastr-biopsia"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-biopsia','Estômago · Lesão (procedimento)','estomagoPainel','lesoesBiopsia',false)">✎</button>
+
+            <span>Hemostasia</span>
+            <select id="lesao-gastr-hemostasia"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-hemostasia','Estômago · Lesão (hemostasia)','estomagoPainel','lesoesHemostasia',true)">✎</button>
+
+            <button class="btn-add" onclick="addLesaoGastricaParagrafo()">＋</button>
+          </div>
+              </div>
+            </div>
+          </div>
+        </div>
         <div id="sortable-estomago" class="sortable-zone ui-sortable"></div>
+        <!-- /Atrofia + Lesão -->
       </div>
     </div>
 
@@ -845,7 +678,30 @@
       </div>
     </div>
 
-    <!-- OUTROS -->
+    <!-- SEÇÕES PERSONALIZADAS — rodapé do laudo; ocultas até ativação -->
+    <div class="sec-row secao-custom oculta" id="sec-row-custom2">
+      <div class="sec-label" id="sec-label-custom2">Seção 1 (rodapé)</div>
+      <div class="sec-content" id="Custom2">
+        <div id="sortable-custom2" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+    <div class="sec-row secao-custom oculta" id="sec-row-custom4">
+      <div class="sec-label" id="sec-label-custom4">Seção 2 (rodapé)</div>
+      <div class="sec-content" id="Custom4">
+        <div id="sortable-custom4" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- ANATOMO (alimenta o pedido de AP; não entra no laudo) -->
+    <div class="sec-row">
+      <div class="sec-label">Anatomo</div>
+      <div class="sec-content" id="anatomo-sec">
+        <div id="sortable-anatomo" class="sortable-zone ui-sortable"></div>
+      </div>
+    </div>
+
+    <!-- OUTROS — última seção da página (visual); no laudo o conteúdo continua
+         entre Jejuno e Conclusão, pois montarLaudo lê as seções por ID fixo. -->
     <div class="sec-row" style="border-bottom:none;">
       <div class="sec-label">Outros</div>
       <div class="sec-content" id="Outros">
@@ -854,48 +710,84 @@
     </div>
 
   </div>
+
+    <!-- Barra de ações de laudo — visível só no modo caixa lateral (a sidebar
+         some no lateral, então estes botões ficam acessíveis aqui no rodapé). -->
+    <div class="lateral-laudo-bar">
+      <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
+      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
+      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
+      <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
+    </div>
+
+  <footer class="footer-lateral">Gera Laudo - EDA · 2026 · Eduardo K. M. Ogawa</footer>
 </div><!-- /main-col -->
 
   <!-- OUTPUT -->
   <div class="output-wrap">
     <div class="output-bar">
+      <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
       <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-      <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
-      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
+      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
+      <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
+    </div>
+    <div class="text-toolbar">
+      <button type="button" id="btn-formato" class="btn-formato" title="Personalizar template/formato do laudo" onclick="abrirEditorFormato()">🎛 Formato</button>
+      <span class="fmt-separator"></span>
+      <select id="sel-fonte" autocomplete="off" onchange="applyFont(this.value)">
+        <option value="Arial">Arial</option>
+        <option value="Calibri">Calibri</option>
+        <option value="'Courier New'">Courier</option>
+        <option value="Georgia">Georgia</option>
+        <option value="Segoe UI">Segoe UI</option>
+        <option value="Times New Roman">Times New Roman</option>
+        <option value="Verdana">Verdana</option>
+      </select>
+      <select id="sel-tamanho" autocomplete="off" onchange="applySize(this.value)">
+        <option value="1">8pt</option>
+        <option value="2">10pt</option>
+        <option value="3">11pt</option>
+        <option value="4" selected>12pt</option>
+        <option value="5">14pt</option>
+        <option value="6">18pt</option>
+      </select>
+      <button onclick="toggleFormat('bold')" title="Negrito"><b>B</b></button>
+      <button onclick="toggleFormat('italic')" title="Itálico"><i>I</i></button>
+      <button onclick="toggleFormat('underline')" title="Sublinhado"><u>U</u></button>
+      <span class="fmt-separator"></span>
+      <button onclick="toggleFormat('justifyLeft')" class="align-btn" title="Alinhar à esquerda">
+        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="12" height="1.5" rx=".75"/><rect x="1" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+      </button>
+      <button onclick="toggleFormat('justifyCenter')" class="align-btn" title="Centralizar">
+        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="3" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="4" y="9" width="12" height="1.5" rx=".75"/><rect x="2" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+      </button>
+      <button onclick="toggleFormat('justifyRight')" class="align-btn" title="Alinhar à direita">
+        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="5" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="7" y="9" width="12" height="1.5" rx=".75"/><rect x="3" y="12.5" width="16" height="1.5" rx=".75"/></svg>
+      </button>
+      <button onclick="toggleFormat('justifyFull')" class="align-btn" title="Justificar">
+        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="18" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="18" height="1.5" rx=".75"/><rect x="1" y="12.5" width="18" height="1.5" rx=".75"/></svg>
+      </button>
     </div>
     <div class="output-scroll">
-      <div class="text-toolbar">
-        <select onchange="applyFont(this.value)">
-          <option value="Arial">Arial</option>
-          <option value="Times New Roman">Times</option>
-          <option value="'Courier New'">Courier</option>
-          <option value="Georgia">Georgia</option>
-        </select>
-        <select onchange="applySize(this.value)">
-          <option value="1">8pt</option>
-          <option value="2">10pt</option>
-          <option value="3" selected>12pt</option>
-          <option value="4">14pt</option>
-          <option value="5">18pt</option>
-          <option value="6">24pt</option>
-        </select>
-        <button onclick="applyBold()" title="Negrito"><b>B</b></button>
-        <button onclick="applyItalic()" title="Itálico"><i>I</i></button>
-        <button onclick="applyUnderline()" title="Sublinhado"><u>U</u></button>
-      </div>
-      <div id="output" contenteditable="true"></div>
+      <div id="output" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texto do laudo"></div>
     </div>
     <div class="output-bottom-bar">
       <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-      <button class="btn-muted"   onclick="copiarFormatado()">🖨 Fonte 11</button>
-      <button class="btn-muted"   onclick="uncheckAll()">✕ Limpar</button>
+      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
+    </div>
+    <div id="ap-wrap" hidden>
+      <div id="ap-output" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Pedido de anatomopatológico"></div>
+      <div class="ap-bar">
+        <strong>🧪 Pedido de Anatomopatológico</strong>
+        <button class="btn-primary" onclick="copiarPedidoAP()">📄 Copiar AP</button>
+        <button class="btn-muted" onclick="renumerarPedidoAP()" title="Renumera os frascos do pedido após edição manual">🔢 Renumerar</button>
+        <button class="btn-ghost" onclick="document.getElementById('ap-wrap').hidden = true">✕ Fechar</button>
+      </div>
     </div>
   </div>
-
-  <footer>Gerador de Laudo de EDA · 2026 · Eduardo K. M. Ogawa</footer>
+  <footer>Gera Laudo - EDA · 2026 · Eduardo K. M. Ogawa</footer>
 </div><!-- /wrap -->
 
-<!-- fecharTodosPopups, hidePopup, hideCreatePopup definidos em funcoes_eda.js -->
+<!-- fecharTodosPopups, hidePopup, hideCreatePopup definidos em ui_eda.js -->
 </body>
 </html>
-

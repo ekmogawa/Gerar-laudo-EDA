@@ -64,6 +64,367 @@ var DB_PADRAO = {
       "3mg",
       "4mg",
       "5mg"
+    ],
+    "estrutura": {
+      "linha1": "Fentanil {fentanil}{midazolam} + Propofol titulado IV.",
+      "linha2": "Suplementação de O2 por catéter nasal a 3 L/min.",
+      "linha3": "Monitorização de oximetria de pulso e PNI."
+    }
+  },
+  "estomagoPainel": {
+    "liquidoTipo": [
+      { "valor": "claro",    "label": "claro" },
+      { "valor": "bilioso",  "label": "bilioso" },
+      { "valor": "estase",   "label": "estase" },
+      { "valor": "hematina", "label": "hematina" },
+      { "valor": "sangue",   "label": "sangue" }
+    ],
+    "liquidoVolume": [
+      { "valor": "volume regular", "label": "regular" },
+      { "valor": "pequeno volume", "label": "pequeno" }
+    ],
+    "pregueado": [
+      { "valor": "normotrófico", "label": "normotrófico" },
+      { "valor": "hipotrófico",  "label": "hipotrófico" },
+      { "valor": "atrófico",     "label": "atrófico" }
+    ],
+    "hiato": [
+      { "valor": "ajustado", "label": "ajustado" },
+      { "valor": "alargado", "label": "alargado" }
+    ],
+    "mucosaEstado": [
+      {
+        "valor": "preservada",
+        "label": "preservada",
+        "textoIgual": "A mucosa está preservada em todos os segmentos.",
+        "textoDiferente": "A mucosa está preservada em fundo e corpo, notando-se ",
+        "texto": "mantendo-se preservada no antro."
+      },
+      {
+        "valor": "enantema",
+        "label": "enantema",
+        "textoIgual": "A mucosa apresenta edema e enantema {intensidade-plural-corpo} no corpo, notando-se enantema {intensidade-sing-antro} no antro.",
+        "textoMesmoDet": "A mucosa apresenta enantema {intensidade-sing-corpo} em corpo e antro.",
+        "textoDiferente": "A mucosa apresenta enantema {intensidade-sing-corpo} no corpo gástrico, ",
+        "texto": "enantema {intensidade-sing-antro} no antro."
+      },
+      {
+        "valor": "erosões",
+        "label": "erosões",
+        "textoIgual": "A mucosa apresenta {det-corpo} erosões planas recobertas por fibrina no corpo gástrico e {det-antro} no antro.",
+        "textoMesmoDet": "A mucosa apresenta {det-corpo} erosões planas recobertas por fibrina em corpo e antro.",
+        "textoDiferente": "A mucosa apresenta {det-corpo} erosões planas recobertas por fibrina no corpo gástrico, ",
+        "texto": "{det-antro} erosões planas recobertas por fibrina no antro."
+      }
+    ],
+    "intensidade": [
+      { "valor": "leve",     "label": "leve" },
+      { "valor": "moderado", "label": "moderado" },
+      { "valor": "intenso",  "label": "intenso" }
+    ],
+    "frequencia": [
+      { "valor": "raras",     "label": "raras" },
+      { "valor": "algumas",   "label": "algumas" },
+      { "valor": "numerosas", "label": "numerosas" }
+    ],
+    "atrofiaKT": [
+      {
+        "label": "C-1",
+        "valor": "A mucosa está relativamente preservada em fundo e corpo. Na incisura angular e antro, a mucosa é discretamente pálida com relevo reduzido (Kimura-Takemoto C-1), aspecto possivelmente correlacionado com quadro de infecção prévia por H. pylori (pós-tratamento)."
+      },
+      {
+        "label": "C-2",
+        "valor": "A mucosa apresenta aspecto relativamente preservado na maior parte do corpo com área pálida e relevo reduzido na pequena curvatura do corpo distal, incisura angular e todo o antro."
+      },
+      {
+        "label": "C-3",
+        "valor": "A mucosa apresenta aspecto relativamente preservado na maior parte do corpo com área pálida e relevo reduzido na pequena curvatura do corpo, incisura angular e todo o antro."
+      },
+      {
+        "label": "O-1",
+        "valor": "A mucosa apresenta-se pálida com relevo reduzido em parte do corpo."
+      },
+      {
+        "label": "O-2",
+        "valor": "A mucosa apresenta-se pálida com relevo reduzido e vasos submucosos evidentes na maior parte do corpo, incisura angular e todo o antro."
+      },
+      {
+        "label": "O-3",
+        "valor": "A mucosa apresenta-se pálida com relevo reduzido e vasos submucosos evidentes em todos os segmentos."
+      }
+    ],
+    "modificadoresGastrite": [
+      { "valor": "",  "label": "—", "extra": "" },
+      {
+        "label": "sufusão hemorrágica",
+        "tipo": "substituicao",
+        "valor": "{intensidade-sing-corpo}",
+        "extra": "{intensidade-sing-corpo} com pontos de sufusão hemorrágica no interior de áreas gástricas",
+        "valor2": "{intensidade-plural-corpo}",
+        "extra2": "{intensidade-plural-corpo} com pontos de sufusão hemorrágica no interior de áreas gástricas"
+      },
+      {
+        "label": "pólipos de corpo",
+        "tipo": "substituicao",
+        "valor": "A mucosa está preservada em todos os segmentos",
+        "extra": "A mucosa está preservada em todos os segmentos, exceto por alguns pólipos sésseis medindo até 5mm no corpo gástrico"
+      }
+    ],
+    "modificadoresAtrofia": [
+      { "valor": "",  "label": "—", "extra": "" },
+      {
+        "label": "gastrite ativa",
+        "valor": "com relevo reduzido",
+        "extra": "com relevo reduzido e mucosa de aspecto enantematoso"
+      },
+      {
+        "label": "metaplasia intestinal",
+        "valor": "com relevo reduzido",
+        "extra": "com relevo reduzido e áreas de metaplasia intestinal"
+      },
+      {
+        "label": "erosões",
+        "valor": "Piloro centrado e pérvio.",
+        "extra": "Algumas erosões planas no antro. Piloro centrado e pérvio."
+      },
+      {
+        "label": "xantoma corpo",
+        "valor": "Piloro centrado e pérvio.",
+        "extra": "Algumas placas amareladas compatíveis com xantoma no corpo gástrico. Piloro centrado e pérvio."
+      },
+      {
+        "label": "xantoma antro",
+        "valor": "Piloro centrado e pérvio.",
+        "extra": "Algumas placas amareladas compatíveis com xantoma no antro. Piloro centrado e pérvio."
+      }
+    ],
+    "templatesConclusaoGastrite": [
+      { "label": "Normal",                                    "valor": "- Estômago de aspecto endoscópico normal." },
+      { "label": "Antro: enantema",                           "valor": "- Gastrite enantematosa {intensidade} do antro." },
+      { "label": "Antro: erosões",                            "valor": "- Gastrite erosiva {intensidade} do antro." },
+      { "label": "Corpo: enantema",                           "valor": "- Gastrite enantematosa {intensidade} do corpo gástrico." },
+      { "label": "Corpo: erosões",                            "valor": "- Gastrite erosiva {intensidade} do corpo gástrico." },
+      { "label": "Pangastrite enantematosa",                  "valor": "- Pangastrite enantematosa {intensidade}." },
+      { "label": "Pangastrite enantematosa assimétrica",      "valor": "- Pangastrite enantematosa {intensidade}." },
+      { "label": "Pangastrite erosiva",                       "valor": "- Pangastrite erosiva {intensidade}." },
+      { "label": "Corpo enantema + antro erosões",            "valor": "- Pangastrite enantematosa com erosões no antro." },
+      { "label": "Corpo erosões + antro enantema",            "valor": "- Pangastrite com erosões em corpo gástrico." },
+      { "label": "Corpo: atrofia",                            "valor": "- Gastrite atrófica de provável etiologia autoimune." },
+      { "label": "Corpo atrofia + antro enantema",            "valor": "- Gastrite atrófica de provável etiologia autoimune associada a gastrite enantematosa {intensidade} do antro." },
+      { "label": "Corpo atrofia + antro erosões",             "valor": "- Gastrite atrófica de provável etiologia autoimune associada a gastrite erosiva {intensidade} do antro." },
+      { "label": "Pangastrite atrófica",                      "valor": "- Gastrite atrófica com provável etiologia autoimune associada a possível atrofia pós infecção por H. pylori em antro." }
+    ],
+    "templatesConclusaoAtrofia": [
+      { "label": "C-1",                       "valor": "- Aspecto endoscópico de atrofia inicial em antro.\n- Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "C-1 com gastrite ativa",    "valor": "- Pangastrite em cronificação (Kimura-Takemoto C-1). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "C-2",                       "valor": "- Gastrite crônica com área de atrofia inicial (Kimura-Takemoto C-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "C-2 com gastrite ativa",    "valor": "- Pangastrite em cronificação (Kimura-Takemoto C-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "C-3",                       "valor": "- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto C-3). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "C-3 com gastrite ativa",    "valor": "- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto C-3) e gastrite ativa. Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "O-1",                       "valor": "- Gastrite crônica com área moderada de atrofia (Kimura-Takemoto O-1). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "O-2",                       "valor": "- Gastrite crônica com área extensa de atrofia (Kimura-Takemoto O-2). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." },
+      { "label": "O-3",                       "valor": "- Gastrite crônica atrófica (Kimura-Takemoto O-3). Realizadas biópsias de antro e corpo para investigação histológica de atrofia e pesquisa de H. pylori." }
+    ],
+    "estruturaGastrite": [
+      { "tipo": "fixo",  "texto": "volume e distensibilidade preservados." },
+      { "tipo": "token", "token": "liquido" },
+      { "tipo": "token", "token": "pregueado" },
+      { "tipo": "fixo",  "texto": "Hiato diafragmático ajustado ao aparelho, quando visto em retroversão." },
+      { "tipo": "token", "token": "mucosa" },
+      { "tipo": "fixo",  "texto": "Incisura angular sem lesões." },
+      { "tipo": "fixo",  "texto": "Piloro centrado e pérvio." }
+    ],
+    "estruturaAtrofia": [
+      { "tipo": "fixo",  "texto": "volume e distensibilidade preservados." },
+      { "tipo": "token", "token": "liquido" },
+      { "tipo": "token", "token": "pregueado" },
+      { "tipo": "fixo",  "texto": "Hiato diafragmático ajustado ao aparelho, quando visto em retroversão." },
+      { "tipo": "token", "token": "mucosa" },
+      { "tipo": "fixo",  "texto": "Piloro centrado e pérvio." }
+    ],
+    "lesoesParede": [
+      { "valor": "parede anterior",   "label": "anterior" },
+      { "valor": "parede posterior",  "label": "posterior" },
+      { "valor": "grande curvatura",  "label": "grande curvatura" },
+      { "valor": "pequena curvatura", "label": "pequena curvatura" },
+      { "valor": "lateral direita",   "label": "lateral direita" },
+      { "valor": "lateral esquerda",  "label": "lateral esquerda" },
+      { "valor": "",                  "label": "-" }
+    ],
+    "lesoesSegmento": [
+      { "valor": "da cárdia",              "label": "da cárdia" },
+      { "valor": "do fundo",               "label": "do fundo" },
+      { "valor": "do corpo gástrico",      "label": "do corpo gástrico" },
+      { "valor": "do antro",               "label": "do antro" },
+      { "valor": "da incisura angular",    "label": "da incisura angular" },
+      { "valor": "da região pré-pilórica", "label": "da região pré-pilórica" },
+      { "valor": "do canal pilórico",      "label": "do canal pilórico" }
+    ],
+    "lesoesTipo": [
+      { "valor": "lesão planoelevada",  "label": "IIa" },
+      { "valor": "lesão plana",         "label": "IIb" },
+      { "valor": "lesão deprimida",     "label": "IIc" },
+      { "valor": "lesão séssil",        "label": "Is" },
+      { "valor": "pólipo subpediculado","label": "Isp" },
+      { "valor": "pólipo pediculado",   "label": "Ip" },
+      { "valor": "cicatriz",            "label": "Cicatriz" },
+      { "valor": "lesão subepitelial de consistência fibroelástica ao toque da pinça", "label": "Subepitelial" }
+    ],
+    "lesoesMagnificacao": [
+      { "valor": "",                                                                 "label": "Não" },
+      { "valor": "Ao exame com magnificação de imagem e cromoscopia, encontra-se",   "label": "Sim" }
+    ],
+    "lesoesDL": [
+      { "valor": "aspecto benigno",                            "label": "DL-" },
+      { "valor": "linha demarcatória",                         "label": "DL+" },
+      { "valor": "área não estrutural com vasos arboriformes", "label": "MALT" },
+      { "valor": "área não estrutural com vasos arboriformes, além de glândulas balonizadas", "label": "MALT c/ Ballooning" }
+    ],
+    "lesoesMV": [
+      { "valor": "",                                "label": "-" },
+      { "valor": "padrão microvascular regular",    "label": "MV-" },
+      { "valor": "vasos discretamente irregulares", "label": "MV+" },
+      { "valor": "vasos bastante tortuosos",        "label": "MV++" }
+    ],
+    "lesoesMS": [
+      { "valor": "",                                               "label": "-" },
+      { "valor": "padrão microestrutural regular",                 "label": "MS-" },
+      { "valor": "padrão microestrutural discretamente irregular", "label": "MS+" },
+      { "valor": "padrão microestrutural bastante irregular",      "label": "MS++" }
+    ],
+    "lesoesBiopsia": [
+      { "valor": "",                     "label": "Não", "conclusao": "",                    "anatomo": "" },
+      { "valor": "Realizadas biópsias.", "label": "Bx",  "conclusao": "Realizadas biópsias.", "anatomo": "Biópsias" },
+      { "valor": "Realizada mucosectomia endoscópica.", "label": "EMR", "conclusao": "Realizada mucosectomia endoscópica.", "anatomo": "Produto de mucosectomia" }
+    ],
+    "lesoesHemostasia": [
+      { "valor": "", "label": "-", "extra": "" },
+      { "valor": ", optando-se por hemostasia profilática com clipe metálico",  "label": "Profilática clipe",  "extra": " e hemostasia profilática" },
+      { "valor": ", optando-se por hemostasia profilática com clipes metálicos", "label": "Profilática clipes", "extra": " e hemostasia profilática" },
+      { "valor": ", notando-se sangramento de pequena monta. Realizada hemostasia com clipe metálico",  "label": "Terapêutica clipe",  "extra": " e hemostasia terapêutica" },
+      { "valor": ", notando-se sangramento de pequena monta. Realizada hemostasia com clipes metálicos", "label": "Terapêutica clipes", "extra": " e hemostasia terapêutica" },
+      { "valor": ". Realizada revisão de hemostasia com eletrocauterização em modo soft após", "label": "Revisão soft", "extra": " e hemostasia por eletrocauterização" },
+      { "valor": ". Realizada revisão de hemostasia com eletrocauterização em modo soft e aproximação parcial das margens do leito de ressecção após", "label": "Revisão e fechamento parcial", "extra": " e fechamento parcial do leito" },
+      { "valor": ". Realizada revisão de hemostasia com eletrocauterização em modo soft e aproximação das margens do leito de ressecção após", "label": "Revisão e fechamento total", "extra": " e fechamento total do leito" }
+    ]
+  },
+  "esofagoPainel": {
+    "itensEsofagite": [
+      { "label": "LAA",     "valor": "calibre e distensibilidade preservados. Presença de erosões menores que 5 mm ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.", "conclusao": "- Esofagite erosiva distal leve - Los Angeles A." },
+      { "label": "LAB",     "valor": "calibre e distensibilidade preservados. Presença de erosões lineares não confluentes maiores que 5 mm ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.", "conclusao": "- Esofagite erosiva distal moderada - Los Angeles B." },
+      { "label": "LAC",     "valor": "calibre e distensibilidade preservados. Presença de erosões maiores que 5 mm, confluindo e ocupando cerca de 40% da circunferência, ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.", "conclusao": "- Esofagite erosiva distal moderada - Los Angeles C." },
+      { "label": "LAD",     "valor": "calibre e distensibilidade preservados. Presença de erosões maiores que 5 mm, confluindo e ocupando toda a circunferência do órgão ao nível da transição esofagogástrica, que coincide com o pinçamento diafragmático.", "conclusao": "- Esofagite erosiva distal intensa - Los Angeles D." },
+      { "label": "Esof NE", "valor": "calibre e distensibilidade preservados. A mucosa apresenta edema no terço distal, porém sem erosões. A transição esofagogástrica coincide com o pinçamento diafragmático.", "conclusao": "- Esofagite não erosiva." },
+      { "label": "Varizes", "valor": "calibre e distensibilidade preservados. Ausência de lesões de mucosa. Presença de cordões varicosos retilíneos e azulados medindo cerca de 5mm, sem sinais de cor vermelha, no terço distal. A transição esofagogástrica coincide com o pinçamento diafragmático.", "conclusao": "- Varizes esofágicas de médio calibre. Sem necessidade de tratamento endoscópico no momento." }
+    ],
+    "modificadoresEsofagite": [
+      { "valor": "", "label": "—", "extra": "", "conclusao": "" },
+      {
+        "label": "HHD",
+        "tipo": "substituicao",
+        "valor": "coincide com o pinçamento diafragmático",
+        "extra": "está deslocada cerca de 2cm acima do pinçamento diafragmático",
+        "conclusao": "- Hérnia hiatal por deslizamento."
+      },
+      {
+        "label": "Varizes",
+        "tipo": "adicao",
+        "valor": "",
+        "extra": "",
+        "conclusao": "- Varizes esofágicas."
+      }
+    ],
+    "varizes": {
+      "numero": [
+        { "label": "-", "valor": "" },
+        { "label": "1", "valor": "1" },
+        { "label": "2", "valor": "2" },
+        { "label": "3", "valor": "3" },
+        { "label": "4", "valor": "4" },
+        { "label": "5", "valor": "5" }
+      ],
+      "localizacao": [
+        { "label": "terço distal", "valor": "terço distal" },
+        { "label": "terços médio e distal", "valor": "terços médio e distal" },
+        { "label": "todo o órgão", "valor": "todo o órgão" }
+      ],
+      "morfologia": [
+        { "label": "tortuoso", "valor": "tortuoso" },
+        { "label": "retilíneo", "valor": "retilíneo" }
+      ],
+      "calibre": [
+        { "label": "fino", "valor": "fino calibre" },
+        { "label": "médio", "valor": "médio calibre" },
+        { "label": "grosso", "valor": "grosso calibre" }
+      ],
+      "coloracao": [
+        { "label": "coloração arroxeada", "valor": "coloração arroxeada" },
+        { "label": "coloração vinhosa", "valor": "coloração vinhosa" }
+      ],
+      "sinaisCorVermelha": [
+        { "label": "não", "valor": "sem sinais de cor vermelha" },
+        { "label": "pontos avermelhados", "valor": "com pontos avermelhados" },
+        { "label": "vergão vermelho", "valor": "com vergão vermelho" },
+        { "label": "hematocisto", "valor": "com hematocisto" },
+        { "label": "rubor difuso", "valor": "com rubor difuso" }
+      ],
+      "retracoes": [
+        { "label": "não", "valor": "nao" },
+        { "label": "sim", "valor": "sim" }
+      ],
+      "ligadura": [
+        { "label": "não", "valor": "nao" },
+        { "label": "sim", "valor": "sim" }
+      ],
+      "bandas": [
+        { "label": "1", "valor": "1" },
+        { "label": "2", "valor": "2" },
+        { "label": "3", "valor": "3" },
+        { "label": "4", "valor": "4" },
+        { "label": "5", "valor": "5" },
+        { "label": "6", "valor": "6" },
+        { "label": "7", "valor": "7" },
+        { "label": "8", "valor": "8" },
+        { "label": "9", "valor": "9" },
+        { "label": "10", "valor": "10" }
+      ],
+      "estrutura": "Visualização de {nucleo} {trajeto} de {calibre} com {coloracao} {sinais} em {localizacao}{retracoes}.{ligadura}"
+    },
+    "barrett": {
+      "baseSemCirc": "calibre e distensibilidade preservados. No terço distal, nota-se mucosa de aspecto colunar digitiforme medindo cerca de {y}cm a partir da transição esofagogástrica",
+      "baseSoCirc": "calibre e distensibilidade preservados. No terço distal, nota-se mucosa de aspecto colunar com área circunferencial medindo cerca de {x}cm a partir da transição esofagogástrica",
+      "baseComCirc": "calibre e distensibilidade preservados. No terço distal, nota-se mucosa de aspecto colunar com área circunferencial medindo cerca de {x}cm e área digitiforme medindo cerca de {y}cm a partir da transição esofagogástrica",
+      "transicaoSemHHD": ", que coincide com o pinçamento diafragmático.",
+      "transicaoComHHD": ", que está deslocada cerca de {hhd}cm acima do pinçamento diafragmático.",
+      "avaliacaoPrefixo": "Realizada avaliação complementar com ",
+      "displasiaNao": "não foram encontradas áreas suspeitas para displasia.",
+      "displasiaAreaFrag": "parede {parede} distando cerca de {w}cm da transição esofagogástrica",
+      "displasiaSimSing": "encontrada área suspeita para displasia em {areas}.",
+      "displasiaSimPlur": "encontradas áreas suspeitas para displasia em {areas}.",
+      "segCurto": "curto",
+      "segLongo": "longo"
+    },
+    "barrettAvaliacao": [
+      { "valor": "cromoscopia digital",            "label": "cromoscopia digital" },
+      { "valor": "cromoscopia com ácido acético",  "label": "cromoscopia com ácido acético" },
+      { "valor": "magnificação de imagem",         "label": "magnificação de imagem" }
+    ],
+    "barrettParedes": [
+      { "valor": "",                "label": "—" },
+      { "valor": "anterior",        "label": "anterior" },
+      { "valor": "posterior",       "label": "posterior" },
+      { "valor": "lateral direita", "label": "lateral direita" },
+      { "valor": "lateral esquerda","label": "lateral esquerda" }
+    ],
+    "barrettBiopsia": [
+      { "valor": "Realizadas biópsias direcionadas.",                "label": "Direcionadas" },
+      { "valor": "Realizadas biópsias aleatórias para diagnóstico.", "label": "Aleatórias p/ diagnóstico" },
+      { "valor": "Realizadas biópsias de quadrantes a cada 2cm.",    "label": "Quadrantes a cada 2cm" }
+    ],
+    "templatesConclusaoBarrett": [
+      { "label": "diagnostico", "valor": "- Aspecto endoscópico sugestivo de segmento {seg} de Barrett (Praga C{x}M{y}). Cromoscopia e biópsias diagnósticas." },
+      { "label": "displasia",   "valor": "- Segmento {seg} de esôfago de Barrett (Praga C{x}M{y}). Cromoscopia com ácido acético, magnificação e biópsias de área suspeita para displasia." },
+      { "label": "seguimento",  "valor": "- Segmento {seg} de esôfago de Barrett (Praga C{x}M{y}). Cromoscopia com ácido acético, magnificação e biópsias para seguimento histológico." }
     ]
   },
   "esofago": [
@@ -637,5 +998,91 @@ var DB_PADRAO = {
       "nome": "AP GCA+duod+seriada",
       "valor": "1- bx de antro - pesquisa de H. pylori e atrofia<br>2- bx de corpo gástrico - pesquisa de H. pylori e atrofia<br>3- bx de bulbo e seugnda porção duodenal<br>4- bx de íleo<br>5- bx de cólon direito<br>6- bx de cólon esquerdo<br>7- bx de reto"
     }
-  ]
+  ],
+  "anatomo": [],
+  "custom1": [],
+  "custom2": [],
+  "custom3": [],
+  "custom4": [],
+  "secoesCustom": {
+    "custom1": { "ativa": false, "rotulo": "", "negrito": true, "estilo": "bloco", "quebras": 1, "quebrasAntes": 0, "itensInline": false },
+    "custom2": { "ativa": false, "rotulo": "", "negrito": true, "estilo": "bloco", "quebras": 1, "quebrasAntes": 0, "itensInline": false },
+    "custom3": { "ativa": false, "rotulo": "", "negrito": true, "estilo": "bloco", "quebras": 1, "quebrasAntes": 0, "itensInline": false },
+    "custom4": { "ativa": false, "rotulo": "", "negrito": true, "estilo": "bloco", "quebras": 1, "quebrasAntes": 0, "itensInline": false }
+  }
+};
+
+// ============================================================
+// SEÇÕES PERSONALIZADAS — catálogo (dirige UI, montagem e visibilidade)
+// ============================================================
+// Duas posições no laudo, com duas seções cada. `qual` = chave em _DB e em
+// _DB.secoesCustom; `container` = id do .sec-content (lido por _coletarSecao);
+// a zona sortable é 'sortable-' + qual. Itens vivem em _DB[qual]; a config
+// (ativa + rotulo) em _DB.secoesCustom[qual]. Ver secoes-custom-eda-plan.md.
+var SECOES_CUSTOM = [
+  { qual: 'custom1', container: 'Custom1', posicao: 'aposTitulo', nome: 'Seção 1 (após o título)' },
+  { qual: 'custom3', container: 'Custom3', posicao: 'aposTitulo', nome: 'Seção 2 (após o título)' },
+  { qual: 'custom2', container: 'Custom2', posicao: 'rodape',     nome: 'Seção 1 (rodapé)' },
+  { qual: 'custom4', container: 'Custom4', posicao: 'rodape',     nome: 'Seção 2 (rodapé)' }
+];
+
+// ============================================================
+// PERFIS DE FORMATAÇÃO DO LAUDO
+// ============================================================
+// Separam a APRESENTAÇÃO do laudo (fonte, cabeçalhos, espaçamento, título,
+// numeração) do CONTEÚDO (que vive nos slots). Cada perfil é dirigido por
+// _perfilFormatoAtivo()/montarLaudo() em laudo_eda.js.
+//
+// O perfil "classico" reproduz EXATAMENTE o layout histórico hardcoded — é o
+// padrão e o critério de não-regressão (o HTML gerado deve ser idêntico ao de
+// antes da refatoração). NÃO altere os literais do classico sem verificar a
+// igualdade do output.
+//
+// Notas de fidelidade ao layout antigo:
+//  - sepSecao é o separador emitido APÓS cada item de uma seção (inclusive o
+//    último); o separador final é o que também produz o espaço ENTRE seções.
+//    Por isso os valores diferem por seção (equipamento 3x <br>, conclusão 1x).
+//  - titulo.alinhamento 'left' => sem wrapper <div> (texto cru), como antes.
+
+var FORMATO_CLASSICO_EDA = {
+  id: 'classico',
+  nome: 'Clássico',
+  fonte: 'Arial,sans-serif',
+  tamanho: '12pt',
+  titulo: {
+    texto: 'ENDOSCOPIA DIGESTIVA ALTA',
+    negrito: true,
+    alinhamento: 'left',   // 'left' = sem wrapper de alinhamento
+    linhasDepois: 3
+  },
+  cabecalho: {
+    estilo: 'inline',      // 'inline' => "Esôfago: " | 'bloco' => "ESÔFAGO\n"
+    maiusculas: false,     // só relevante p/ estilo 'bloco'
+    negrito: true,
+    sufixo: ': '           // só relevante p/ estilo 'inline'
+  },
+  // Separador (trailing) de cada seção — fiel ao laudo histórico.
+  sepSecao: {
+    equipamento: '<br><br><br>',
+    sedacao:     '<br><br>',
+    esofago:     '<br><br>',
+    estomago:    '<br><br>',
+    duodeno:     '<br><br>',
+    jejuno:      '<br><br>',
+    outros:      '<br><br>',
+    conclusao:   '<br>'
+  },
+  conclusao: {
+    rotulo: 'Conclusão:',
+    negrito: true,
+    numerar: false,
+    brAntes: 2,
+    brDepois: 2
+  }
+};
+
+// Catálogo de perfis embutidos (Phase 1 acrescentará persistência/seleção).
+var FORMATOS_PADRAO = {
+  ativo: 'classico',
+  perfis: [FORMATO_CLASSICO_EDA]
 };

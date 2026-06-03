@@ -1,793 +1,94 @@
 <!DOCTYPE html>
-<html lang="pt">
+<html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>Gera Laudo - EDA</title>
-  <link rel="preconnect" href="https://fonts.googleapis.com">
-  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="styles.css">
-
-  <!-- Firebase SDK (compat) -->
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-app-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-auth-compat.js"></script>
-  <script src="https://www.gstatic.com/firebasejs/10.14.1/firebase-firestore-compat.js"></script>
-  <!-- Nota: o console mostra SDK 12.x (módulos ES), mas usamos a versão compat 10.x que é
-       compatível com o mesmo projeto Firebase. Não é necessário atualizar. -->
-
-  <!-- Configurações (Firebase) -->
-  <script src="firebase-config.js"></script>
-
-  <!-- Loader sequencial: dados → core → ui → painel → storage → laudo → admin → historico → init -->
-  <script>
-    (function () {
-      var t = Date.now();
-
-      /**
-       * Carrega um script e retorna uma Promise.
-       * @param {string} url  Caminho do script (sem ?t=).
-       * @returns {Promise<void>}
-       */
-      function carregarModulo(url) {
-        return new Promise(function (resolve, reject) {
-          var s = document.createElement('script');
-          s.src = url + '?t=' + t;
-          s.onload  = resolve;
-          s.onerror = function () {
-            console.error('[loader] Falha ao carregar: ' + url);
-            document.body.innerHTML =
-              '<div style="font:15px Arial;padding:40px;color:#900">' +
-              '&#10060; Erro: <b>' + url + '</b> n&#227;o p&#244;de ser carregado.<br><br>' +
-              'Verifique se o arquivo existe no reposit&#243;rio e se o nome est&#225; correto.</div>';
-            reject(new Error('Falha ao carregar ' + url));
-          };
-          document.head.appendChild(s);
-        });
-      }
-
-      /**
-       * Dispara fn quando o DOM estiver pronto.
-       */
-      function domReady(fn) {
-        if (document.readyState === 'loading') {
-          document.addEventListener('DOMContentLoaded', fn);
-        } else {
-          fn();
-        }
-      }
-
-      // Ordem de carregamento respeita as dependências entre módulos
-      var scriptsParaCarregar = [
-        'dados_eda.js',           // 0 — dados (DB_PADRAO, sem dependências)
-        'core_eda.js',            // 1 — Firebase, auth, globals, helpers
-        'ui_eda.js',              // 2 — DOM, popups, edição, serialização
-        'dnd_eda.js',             // 3 — Drag & drop (Pointer Events)
-        'editor_mucosa_eda.js',   // 4 — Editor especializado Mucosa Estado
-        'painel_eda.js',          // 5 — Gastrite/Atrofia panels, TPL_EDA
-        'storage_eda.js',         // 6 — Firestore CRUD, slots
-        'laudo_eda.js',           // 7 — Geração, cópia, formatação do laudo
-        'formato_eda.js',         // 8 — Editor de perfis de formatação
-        'admin_eda.js',           // 9 — Admin codes
-        'historico_eda.js'        // 10 — Histórico (último a carregar)
-      ];
-
-      async function inicializarSistema() {
-        for (var i = 0; i < scriptsParaCarregar.length; i++) {
-          await carregarModulo(scriptsParaCarregar[i]);
-        }
-        // Todos os módulos carregados — inicia o Firebase quando o DOM estiver pronto
-        domReady(function () {
-          if (typeof inicializarFirebase === 'function') inicializarFirebase();
-        });
-      }
-
-      inicializarSistema();
-    })();
-  </script>
-
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Endereço atualizado — Laudo EDA</title>
+<meta name="robots" content="noindex">
+<link rel="canonical" href="https://eda.geralaudo.com.br/">
+<!-- Redirecionamento automático (fallback caso o JS esteja desativado) -->
+<meta http-equiv="refresh" content="5; url=https://eda.geralaudo.com.br/">
+<style>
+  :root{
+    --bg:#eef2ef; --panel:#ffffff; --border:#d6e3da;
+    --ink:#172418; --ink2:#3d5c46; --ink3:#7a9882;
+    --primary:#1b4d36; --accent:#2a7a52; --accent-l:#e6f4ed;
+  }
+  *{box-sizing:border-box;margin:0;padding:0}
+  body{
+    font-family:'Segoe UI',Arial,sans-serif;
+    background:var(--bg);
+    color:var(--ink);
+    min-height:100vh;
+    display:flex;
+    align-items:center;
+    justify-content:center;
+    padding:24px;
+  }
+  .card{
+    background:var(--panel);
+    max-width:460px;
+    width:100%;
+    border:1px solid var(--border);
+    border-radius:16px;
+    box-shadow:0 8px 30px rgba(27,77,54,.12);
+    padding:40px 34px;
+    text-align:center;
+  }
+  .logo{
+    width:64px;height:64px;
+    margin:0 auto 22px;
+    background:var(--accent-l);
+    border-radius:50%;
+    display:flex;align-items:center;justify-content:center;
+  }
+  .logo svg{width:34px;height:34px;stroke:var(--primary);fill:none;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+  h1{font-size:22px;color:var(--primary);margin-bottom:14px;font-weight:600}
+  p{font-size:15px;line-height:1.6;color:var(--ink2);margin-bottom:10px}
+  .new-url{
+    display:inline-block;
+    margin:18px 0 6px;
+    font-size:15px;
+    font-weight:600;
+    color:var(--accent);
+    word-break:break-all;
+  }
+  .btn{
+    display:inline-block;
+    margin-top:22px;
+    background:var(--primary);
+    color:#fff;
+    text-decoration:none;
+    padding:12px 28px;
+    border-radius:10px;
+    font-size:15px;
+    font-weight:600;
+    box-shadow:0 2px 8px rgba(27,77,54,.3);
+    transition:background .15s;
+  }
+  .btn:hover{background:#123625}
+  .count{font-size:13px;color:var(--ink3);margin-top:18px}
+  .count b{color:var(--accent)}
+</style>
 </head>
 <body>
-
-<!-- AUTH MODAL -->
-<div id="auth-overlay">
-  <div id="auth-box">
-    <div class="auth-logo">📑</div>
-    <h2>Gera Laudo - EDA</h2>
-    <div class="auth-tabs">
-      <button class="auth-tab active" id="tab-entrar"    onclick="mostrarTabAuth('entrar')">Entrar</button>
-      <button class="auth-tab"        id="tab-cadastrar" onclick="mostrarTabAuth('cadastrar')">Cadastrar</button>
+  <div class="card">
+    <div class="logo">
+      <svg viewBox="0 0 24 24"><path d="M5 12h14M13 6l6 6-6 6"/></svg>
     </div>
-
-    <div id="form-entrar">
-      <input type="email"    id="auth-email"    placeholder="E-mail"  autocomplete="email">
-      <input type="password" id="auth-password" placeholder="Senha"   autocomplete="current-password">
-      <button class="btn-primary btn-full" id="btn-login" onclick="loginUsuario()">Entrar</button>
-      <button class="btn-link" onclick="resetarSenha()">Esqueci a senha</button>
-    </div>
-
-    <div id="form-cadastrar" style="display:none">
-      <input type="email"    id="cad-email"     placeholder="E-mail">
-      <input type="password" id="cad-password"  placeholder="Senha (mín. 6 caracteres)">
-      <input type="password" id="cad-password2" placeholder="Confirmar senha">
-      <input type="text"     id="cad-codigo"    placeholder="Código de acesso" autocomplete="off" style="text-transform:uppercase">
-      <button class="btn-primary btn-full" id="btn-cadastrar" onclick="registrarUsuario()">Cadastrar</button>
-    </div>
-
-    <p id="auth-erro"></p>
-
-    <div style="margin-top:16px;padding-top:14px;border-top:1px solid var(--border);text-align:center;">
-      <button class="btn-muted btn-full" id="btn-visitante" onclick="entrarComoVisitante()">
-        &#128100; Entrar como Visitante
-      </button>
-      <p style="font-size:11.5px;color:var(--ink3);margin-top:8px;line-height:1.4;">
-        Acesso somente leitura · nenhuma alteração será salva
-      </p>
-    </div>
+    <h1>Este endereço foi desativado</h1>
+    <p>O <strong>Laudo EDA</strong> mudou de endereço. Você será encaminhado automaticamente para o novo site.</p>
+    <a class="new-url" href="https://eda.geralaudo.com.br/">eda.geralaudo.com.br</a>
+    <p class="count">Redirecionando em <b id="t">5</b> segundos…</p>
+    <a class="btn" href="https://eda.geralaudo.com.br/">Ir agora</a>
   </div>
-</div>
-
-<aside class="sidebar">
-  <div class="sb-brand">📑 EDA</div>
-
-  <div class="sb-section-label">Geral</div>
-  <button class="btn-save" onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
-  <button class="btn-ghost" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
-
-  <div class="sb-divider"></div>
-  <div class="sb-section-label">Histórico</div>
-  <button class="btn-ghost btn-hist" id="btn-desfazer"  onclick="desfazer()"  title="Desfazer (Ctrl+Z)" disabled><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg><span class="btn-hist-label">Desfazer</span></button>
-  <button class="btn-ghost btn-hist" id="btn-refazer"   onclick="refazer()"   title="Refazer (Ctrl+Y)"  disabled><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg><span class="btn-hist-label">Refazer</span></button>
-  <button class="btn-ghost" id="btn-recuperar" onclick="recuperarUltimoLaudo()" title="Restaurar o estado do último laudo na sessão" disabled>↺ Último Laudo</button>
-
-  <div class="sb-divider"></div>
-  <div class="sb-section-label">Laudo</div>
-  <button class="btn-ghost" onclick="salvarDados()" title="Salvar agora">💾 Salvar agora</button>
-  <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
-  <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-  <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
-  <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
-</aside>
-
-<div class="sb-submenu" id="sb-menu-salvar">
-  <button id="btn-toggle-caixa-menu" onclick="toggleCaixaLateral(); fecharMenuSalvar()"><span id="sb-state-lateral-menu" hidden></span>📐 <span id="btn-toggle-caixa-label">Caixa Lateral</span></button>
-  <div class="sb-divider"></div>
-  <button onclick="salvarDados(); fecharMenuSalvar()">💾 Salvar agora</button>
-
-  <button class="sb-folder-toggle" id="sb-folder-toggle-salvar" onclick="toggleSubpasta('salvar', event)">
-    💾 Salvar <span class="sb-folder-arrow">▸</span>
-  </button>
-  <button class="sb-folder-toggle" id="sb-folder-toggle-carregar" onclick="toggleSubpasta('carregar', event)">
-    📂 Carregar <span class="sb-folder-arrow">▸</span>
-  </button>
-
-  <div class="sb-divider"></div>
-  <button onclick="toggleAutoSave(); refrescarMenuSalvar()">🔄 Auto-save <span class="sb-toggle-state" id="sb-state-autosave">OFF</span></button>
-  <button onclick="toggleEfeitosVisuais();" id="btn-toggle-efeitos">✨ Efeitos visuais <span class="sb-toggle-state" id="sb-state-efeitos">ON</span></button>
-  <button onclick="abrirPopupAdmin(); fecharMenuSalvar()" id="btn-admin-codigos" style="display:none">🔑 Código de Acesso</button>
-</div>
-
-<div class="sb-submenu sb-submenu-lateral" id="sb-submenu-salvar">
-  <button class="sb-submenu-item sb-slot-btn" onclick="salvarSlot(1); fecharMenuSalvar()" id="sb-salvar-slot1">📥 Slot 1</button>
-  <button class="sb-submenu-item sb-slot-btn" onclick="salvarSlot(2); fecharMenuSalvar()" id="sb-salvar-slot2">📥 Slot 2</button>
-</div>
-
-<div class="sb-submenu sb-submenu-lateral" id="sb-submenu-carregar">
-  <button class="sb-submenu-item sb-slot-btn" onclick="carregarSlot(1); fecharMenuSalvar()" id="sb-carregar-slot1">📂 Slot 1</button>
-  <button class="sb-submenu-item sb-slot-btn" onclick="carregarSlot(2); fecharMenuSalvar()" id="sb-carregar-slot2">📂 Slot 2</button>
-  <button class="sb-submenu-item" onclick="retornarAoInicial(); fecharMenuSalvar()">↩ Carregar itens padrão</button>
-</div>
-
-<!-- Submenu flutuante "Editar ▾" -->
-<div class="sb-submenu" id="sb-menu-editar">
-  <button onclick="showCreatePopup(); fecharMenuEditar()">＋ Criar item</button>
-  <button onclick="showPopup(); fecharMenuEditar()">✎ Editar item</button>
-  <button onclick="_toggleEditOptsMode(); fecharMenuEditar()" title="Ligar/desligar edição das listas de dropdown (lápis ✎)">⚙ Editar listas</button>
-  <button onclick="deleteCheckedCheckboxes(); fecharMenuEditar()">🗑 Excluir</button>
-</div>
-
-<header class="app-header">
-  <h1>📑 Gera Laudo - EDA</h1>
-  <div class="header-right">
-    <div class="header-actions">
-      <button class="btn-header btn-icon" onclick="salvarDados()" title="Salvar agora" aria-label="Salvar">💾</button>
-      <button class="btn-header" onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
-      <button class="btn-header" onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
-      <button class="btn-header" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
-      <button class="btn-header btn-hist" onclick="desfazer()" title="Desfazer (Ctrl+Z)" aria-label="Desfazer" disabled>
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg>
-      </button>
-      <button class="btn-header btn-hist" onclick="refazer()" title="Refazer (Ctrl+Y)" aria-label="Refazer" disabled>
-        <svg viewBox="0 0 24 24" width="18" height="18" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg>
-      </button>
-      <button class="btn-header" onclick="recuperarUltimoLaudo()" title="Restaurar o último laudo" disabled>↺ Último laudo</button>
-    </div>
-    <span id="save-indicator"></span>
-    <div id="user-status"></div>
-  </div>
-</header>
-
-<!-- TOOLBAR (legacy — visível só no mobile) -->
-<div class="toolbar">
-  <button class="btn-save"  onclick="toggleMenuSalvar(event)">⚙ Opções ▾</button>
-  <button class="btn-ghost" onclick="toggleMenuEditar(event)">✏️ Editar ▾</button>
-  <button class="btn-ghost btn-hist" onclick="desfazer()" title="Desfazer (Ctrl+Z)"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 7v6h6"/><path d="M21 17a9 9 0 0 0-9-9 9 9 0 0 0-6 2.3L3 13"/></svg><span class="btn-hist-label">Desfazer</span></button>
-  <button class="btn-ghost btn-hist" onclick="refazer()" title="Refazer (Ctrl+Y)"><svg viewBox="0 0 24 24" stroke="currentColor" stroke-width="2.5" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M21 7v6h-6"/><path d="M3 17a9 9 0 0 1 9-9 9 9 0 0 1 6 2.3L21 13"/></svg><span class="btn-hist-label">Refazer</span></button>
-  <button class="btn-ghost" onclick="recuperarUltimoLaudo()">↺ Último Laudo</button>
-  <button class="btn-ghost btn-icon" style="margin-left:auto;" onclick="salvarDados()" title="Salvar agora" aria-label="Salvar">💾</button>
-  <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
-  <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-  <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
-  <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
-</div>
-
-<div id="toast"></div>
-<div class="backdrop" id="backdrop" onclick="fecharTodosPopups()"></div>
-
-<!-- POPUP EDITAR -->
-<div class="popup" id="popup">
-  <h3>✏️ Editar Item</h3>
-  <div id="popup-format-toolbar">
-    <button class="fmt-btn fmt-btn-bold" data-cmd="bold" title="Negrito Ctrl+B"><b>B</b></button>
-    <button class="fmt-btn fmt-btn-italic" data-cmd="italic" title="Itálico Ctrl+I"><i>I</i></button>
-    <button class="fmt-btn fmt-btn-underline" data-cmd="underline" title="Sublinhado Ctrl+U"><u>U</u></button>
-    <span class="fmt-separator"></span>
-    <button class="fmt-btn fmt-btn-align" data-cmd="justifyLeft" title="Alinhar à esquerda">
-      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="12" height="1.5" rx=".75"/><rect x="1" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-    </button>
-    <button class="fmt-btn fmt-btn-align" data-cmd="justifyCenter" title="Centralizar">
-      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="3" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="4" y="9" width="12" height="1.5" rx=".75"/><rect x="2" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-    </button>
-    <button class="fmt-btn fmt-btn-align" data-cmd="justifyRight" title="Alinhar à direita">
-      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="5" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="7" y="9" width="12" height="1.5" rx=".75"/><rect x="3" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-    </button>
-    <button class="fmt-btn fmt-btn-align" data-cmd="justifyFull" title="Justificar">
-      <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="18" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="18" height="1.5" rx=".75"/><rect x="1" y="12.5" width="18" height="1.5" rx=".75"/></svg>
-    </button>
-  </div>
-  <div id="checkbox-list"></div>
-  <div class="popup-footer">
-    <button class="btn-primary" onclick="salvarItemEditado()">💾 Salvar</button>
-    <button class="btn-ghost"   onclick="cancelarItemEditado()">Cancelar</button>
-  </div>
-</div>
-
-<!-- POPUP CRIAR -->
-<div class="popup" id="create-popup">
-  <h3>＋ Criar Novo Item</h3>
-  <label for="section-select">Seção</label>
-  <select id="section-select" onchange="toggleAnatomoTipo()">
-    <option value="sortable-custom1" id="opt-custom1" hidden>Seção 1 (após o título)</option>
-    <option value="sortable-custom3" id="opt-custom3" hidden>Seção 2 (após o título)</option>
-    <option value="sortable-equipamento">Equipamento</option>
-    <option value="sortable-sedacao">Sedação</option>
-    <option value="sortable-esofago">Esôfago</option>
-    <option value="sortable-estomago">Estômago</option>
-    <option value="sortable-duodeno">Duodeno</option>
-    <option value="sortable-jejuno">Jejuno</option>
-    <option value="sortable-conclusao">Conclusão</option>
-    <option value="sortable-custom2" id="opt-custom2" hidden>Seção 1 (rodapé)</option>
-    <option value="sortable-custom4" id="opt-custom4" hidden>Seção 2 (rodapé)</option>
-    <option value="sortable-anatomo">Anatomo</option>
-    <option value="sortable-outros">Outros</option>
-  </select>
-  <div id="anatomo-tipo-group" style="display:none;">
-    <label for="anatomo-tipo">Tipo (somente seção Anatomo)</label>
-    <select id="anatomo-tipo">
-      <option value="frasco">Frasco (numerado)</option>
-      <option value="rodape">Nota de rodapé (texto no fim, sem número)</option>
-    </select>
-  </div>
-  <label for="checkbox-type">Tipo de item</label>
-  <select id="checkbox-type" onchange="toggleModifierFields(this.value)">
-    <option value="normal" selected>Normal</option>
-    <option value="modificador">Modificador</option>
-  </select>
-  <label for="checkbox-name">Nome do item</label>
-  <input type="text" id="checkbox-name" placeholder="Ex: GIF-H290">
-  <div id="checkbox-value-group">
-    <label for="checkbox-value">Texto do laudo</label>
-    <textarea id="checkbox-value" placeholder="Texto que será inserido no laudo…"></textarea>
-  </div>
-  <div id="modifier-fields" style="display:none;">
-    <label for="checkbox-find">Texto a ser substituído</label>
-    <textarea id="checkbox-find" placeholder="Texto que será substituído…"></textarea>
-    <label for="checkbox-replace">Texto final</label>
-    <textarea id="checkbox-replace" placeholder="Texto final que substituirá o original…"></textarea>
-  </div>
-  <div id="checkbox-conclusao-group" style="display:none;">
-    <label for="checkbox-conclusao">Texto da Conclusão (opcional)</label>
-    <textarea id="checkbox-conclusao" placeholder="Texto que será inserido na seção Conclusão…"></textarea>
-  </div>
-  <div class="popup-footer">
-    <button class="btn-primary" onclick="createCheckbox()">✅ Criar</button>
-    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
-  </div>
-</div>
-
-
-<!-- POPUP EDITOR DE OPÇÕES DE DROPDOWN -->
-<div class="popup" id="popup-edit-options">
-  <h3 id="popup-edit-options-title">Editar opções</h3>
-  <div class="opt-editor-legenda">
-    <strong>Label</strong>: como aparece no dropdown (curto). <strong>Valor</strong>: texto inserido no laudo.
-  </div>
-  <div id="popup-edit-options-body"></div>
-  <div class="popup-footer">
-    <button class="btn-primary" onclick="salvarOptionsEditadas()">💾 Salvar</button>
-    <button class="btn-muted"   onclick="restaurarOptionsPadrao()" title="Restaurar lista ao template do administrador">↺ Restaurar padrão</button>
-    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
-  </div>
-</div>
-
-<!-- POPUP EDITOR DE ESTRUTURA (esqueleto das frases dos painéis) -->
-<div class="popup" id="popup-edit-estrutura">
-  <h3 id="popup-edit-estrutura-title">Editar estrutura</h3>
-  <div class="opt-editor-legenda"></div>
-  <div id="popup-edit-estrutura-body"></div>
-  <div class="popup-footer">
-    <button class="btn-primary" onclick="salvarEstruturaEditada()">💾 Salvar</button>
-    <button class="btn-muted"   onclick="restaurarEstruturaPadrao()" title="Restaurar a estrutura ao template do administrador">↺ Restaurar padrão</button>
-    <button class="btn-ghost"   onclick="fecharTodosPopups()">Cancelar</button>
-  </div>
-</div>
-
-<!-- POPUP EDIT MUCOSA ESTADO — editor especializado para Gastrite mucosa -->
-<div class="popup" id="popup-edit-mucosa-estado">
-  <div class="popup-content">
-    <h3 class="popup-title">Gastrite · Mucosa Estado</h3>
-    <div class="editor-items"></div>
-    <div class="popup-footer">
-      <button class="btn" onclick="adicionarLinhaMucosaEstado()">＋ Adicionar item</button>
-      <button class="btn-primary" onclick="salvarMucosaEstadoEditada()">💾 Salvar</button>
-      <button class="btn-ghost" onclick="fecharPopupMucosaEstado()">Cancelar</button>
-    </div>
-  </div>
-</div>
-
-<!-- POPUP ADMIN — gerenciar códigos de acesso -->
-<div class="popup" id="admin-popup">
-  <h3>🔑 Gerenciar Códigos de Acesso</h3>
-  <p style="font-size:13px;color:var(--ink3);margin-bottom:14px;">
-    Crie códigos de acesso para convidar novos usuários. Cada código só pode ser usado uma vez.
-  </p>
-  <label for="admin-codigo-novo">Novo código</label>
-  <div style="display:flex;gap:8px;align-items:center;margin-bottom:14px;">
-    <input type="text" id="admin-codigo-novo" placeholder="Ex: CONVITE123" style="text-transform:uppercase;flex:1;">
-    <button class="btn-primary" onclick="criarCodigoAdmin()">🔑 Criar</button>
-  </div>
-  <label>Códigos existentes</label>
-  <div id="admin-lista-codigos" style="max-height:300px;overflow-y:auto;border:1px solid var(--border2);border-radius:6px;padding:8px;">
-    <p style="color:var(--ink3);font-size:13px;padding:8px;text-align:center;">Carregando...</p>
-  </div>
-  <div class="popup-footer" style="margin-top:12px;">
-    <button class="btn-ghost" onclick="fecharPopupAdmin()">Fechar</button>
-  </div>
-</div>
-
-<!-- POPUP EDITOR DE FORMATO / TEMPLATE -->
-<div class="popup" id="popup-formato">
-  <div class="fmt-toolbar-top">
-    <h3>🎛 Formato do laudo</h3>
-    <div class="fmt-row fmt-perfil-row">
-      <label for="fmt-perfil">Perfil ativo</label>
-      <select id="fmt-perfil"></select>
-    </div>
-    <div class="fmt-actions">
-      <button type="button" class="btn" id="fmt-novo">＋ Novo</button>
-      <button type="button" class="btn" id="fmt-duplicar">⧉ Duplicar</button>
-      <button type="button" class="btn" id="fmt-renomear">✎ Renomear</button>
-      <button type="button" class="btn-red" id="fmt-excluir">🗑 Excluir</button>
-    </div>
-  </div>
-  <div class="fmt-scroll">
-    <p class="fmt-legenda">Personalize a apresentação do laudo (fonte, cabeçalhos, espaçamento, título, conclusão) e salve como perfis reutilizáveis.</p>
-    <div id="fmt-embutido-aviso" class="fmt-aviso" hidden>Perfil embutido (somente leitura). Use &ldquo;Duplicar&rdquo; para criar um perfil editável.</div>
-    <div id="fmt-campos"></div>
-  </div>
-  <div class="fmt-toolbar-bottom">
-    <button type="button" class="btn-ghost" id="fmt-cancelar">Cancelar</button>
-    <button type="button" class="btn-primary" id="fmt-salvar">💾 Salvar</button>
-  </div>
-</div>
-
-<div class="wrap">
-  <div class="main-col">
-    <div class="sections-table">
-
-    <!-- SEÇÕES PERSONALIZADAS — após o título no laudo; ocultas até ativação -->
-    <div class="sec-row secao-custom oculta" id="sec-row-custom1">
-      <div class="sec-label" id="sec-label-custom1">Seção 1 (após o título)</div>
-      <div class="sec-content" id="Custom1">
-        <div id="sortable-custom1" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-    <div class="sec-row secao-custom oculta" id="sec-row-custom3">
-      <div class="sec-label" id="sec-label-custom3">Seção 2 (após o título)</div>
-      <div class="sec-content" id="Custom3">
-        <div id="sortable-custom3" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- EQUIPAMENTO -->
-    <div class="sec-row">
-      <div class="sec-label">Equipamento</div>
-      <div class="sec-content" id="equipamento">
-        <div id="sortable-equipamento" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- SEDAÇÃO -->
-    <div class="sec-row">
-      <div class="sec-label">Sedação</div>
-      <div class="sec-content" id="Sedação">
-        <div id="sortable-sedacao" class="sortable-zone ui-sortable">
-          <!-- item fixo de sedação dinâmica -->
-          <div class="item ui-sortable-handle" style="cursor:default;border-radius:6px;width:fit-content;">
-            <div class="ctrl-row" style="border:none;padding:0;background:transparent;">
-              <span>Fentanil</span>
-              <select id="fentanil"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('fentanil','Sedação · Fentanil','sedacaoSelects','fentanil',false)">✎</button>
-              <span>+ Midazolam</span>
-              <select id="midazolam"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('midazolam','Sedação · Midazolam','sedacaoSelects','midazolam',false)">✎</button>
-              <span>+ Propofol titulado</span>
-              <button class="btn-edit-opt" title="Editar estrutura da frase (Sedação)" onclick="editarEstrutura('sedacao')">✎ estrutura</button>
-              <button class="btn-add" onclick="addParametersedacao()">＋</button>
-            </div>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- ESÔFAGO -->
-    <div class="sec-row">
-      <div class="sec-label">Esôfago</div>
-      <div class="sec-content esofago-geral-em-linha" id="Esôfago">
-        <!-- Esôfago: botões Esofagite + Barrett; corpos colapsáveis abaixo.
-             Esofagite aberto por padrão; accordion por seção (um aberto por vez). -->
-        <div class="painel-grupo">
-          <div class="painel-botoes">
-            <button type="button" class="painel-toggle" data-painel="painel-esofago-esofagite" aria-expanded="true" aria-controls="painel-esofago-esofagite-corpo" onclick="togglePainel('painel-esofago-esofagite')">
-              <span class="painel-tag">Geral</span>
-              <span class="painel-chevron" aria-hidden="true">▾</span>
-            </button>
-            <button type="button" class="painel-toggle" data-painel="painel-esofago-barrett" aria-expanded="false" aria-controls="painel-esofago-barrett-corpo" onclick="togglePainel('painel-esofago-barrett')">
-              <span class="painel-tag">Barrett</span>
-              <span class="painel-chevron" aria-hidden="true">▾</span>
-            </button>
-          </div>
-
-          <!-- Esofagite (corpo, aberto por padrão) -->
-          <div class="painel-estomago painel-colapsavel" id="painel-esofago-esofagite">
-            <div class="painel-colapsavel-corpo" id="painel-esofago-esofagite-corpo">
-              <div class="painel-colapsavel-inner" style="overflow:visible">
-          <div class="ctrl-row">
-            <span>Item:</span>
-            <select id="esof-item"></select><button class="btn-edit-opt" title="Editar itens" onclick="editarOptions('esof-item','Esôfago · Esofagite (itens)','esofagoPainel','itensEsofagite',false)">✎</button>
-
-            <span>HHD</span><input type="text" inputmode="decimal" id="esof-hhd" data-min="0" autocomplete="off" style="width:62px;">
-
-            <span>Achado:</span>
-            <select id="esof-modif" multiple class="atr-modif-hidden"></select><span id="esof-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('esof-modif','Esôfago · Modificadores (Esofagite)','esofagoPainel','modificadoresEsofagite',true,true)">✎</button>
-
-            <button class="btn-add" onclick="addEsofagiteParagrafo()">＋</button>
-          </div>
-          <div class="ctrl-row painel-varizes is-collapsed" id="esof-varizes-wrap">
-            <span class="painel-tag">Varizes:</span>
-            <span>Número</span><select id="esof-variz-numero"></select>
-            <span>Localização</span><select id="esof-variz-localizacao"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-localizacao','Esôfago · Varizes (localização)','esofagoPainel','varizes.localizacao',false)">✎</button>
-            <span>Trajeto</span><select id="esof-variz-morfologia"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-morfologia','Esôfago · Varizes (trajeto)','esofagoPainel','varizes.morfologia',false)">✎</button>
-            <span>Calibre</span><select id="esof-variz-calibre"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-calibre','Esôfago · Varizes (calibre)','esofagoPainel','varizes.calibre',false)">✎</button>
-            <span>Coloração</span><select id="esof-variz-coloracao"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-coloracao','Esôfago · Varizes (coloração)','esofagoPainel','varizes.coloracao',false)">✎</button>
-            <span>Cor vermelha</span><select id="esof-variz-sinais"></select><button class="btn-edit-opt" title="Editar lista" onclick="editarOptions('esof-variz-sinais','Esôfago · Varizes (sinais de cor vermelha)','esofagoPainel','varizes.sinaisCorVermelha',false)">✎</button>
-            <span>Retrações</span><select id="esof-variz-retracoes"></select>
-            <span>Ligadura</span><select id="esof-variz-ligadura" onchange="_esofVarizesToggleBandas()"></select>
-            <span id="esof-variz-bandas-wrap"><span>Bandas</span><select id="esof-variz-bandas"></select></span>
-            <button class="btn-edit-opt" title="Editar estrutura da frase (Varizes)" onclick="editarEstrutura('varizes')">✎ estrutura</button>
-            <button class="btn-add" onclick="addEsofagiteParagrafo()">＋</button>
-          </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Barrett (corpo, colapsado) -->
-          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-esofago-barrett">
-            <div class="painel-colapsavel-corpo" id="painel-esofago-barrett-corpo">
-              <div class="painel-colapsavel-inner">
-          <div class="ctrl-row">
-            <span>Circunf.</span><input type="text" inputmode="decimal" id="barrett-x" data-min="0" autocomplete="off" style="width:62px;" oninput="_barrettSyncMin()">
-            <span>Digit.</span><input type="text" inputmode="decimal" id="barrett-y" data-min="0" autocomplete="off" style="width:62px;">
-            <span>HHD</span><input type="text" inputmode="decimal" id="barrett-hhd" data-min="0" autocomplete="off" style="width:62px;">
-
-            <span>Inflamação:</span>
-            <select id="barrett-inflamacao">
-              <option value="">não</option>
-              <option value="Notam-se erosões na junção escamocolunar.">sim</option>
-            </select>
-
-            <span>Aval. compl.:</span>
-            <select id="barrett-aval" multiple class="atr-modif-hidden"></select><span id="barrett-aval-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar avaliação complementar" onclick="editarOptions('barrett-aval','Esôfago · Barrett (avaliação complementar)','esofagoPainel','barrettAvaliacao',false)">✎</button>
-
-            <span>Displasia:</span>
-            <select id="barrett-displasia" onchange="_barrettToggleInline()">
-              <option value="nao">sem displasia</option>
-              <option value="sim">área suspeita</option>
-            </select>
-            <span id="barrett-paredes-wrap"></span>
-            <button class="btn-edit-opt" title="Editar paredes" onclick="editarOptions('','Esôfago · Barrett (paredes)','esofagoPainel','barrettParedes',false)">✎ paredes</button>
-
-            <span>Biópsias:</span>
-            <select id="barrett-bio" multiple class="atr-modif-hidden"></select><span id="barrett-bio-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar biópsias" onclick="editarOptions('barrett-bio','Esôfago · Barrett (biópsias)','esofagoPainel','barrettBiopsia',false)">✎</button>
-
-            <button class="btn-edit-opt" title="Editar conclusões (Barrett)" onclick="editarOptions('','Esôfago · Conclusões (Barrett)','esofagoPainel','templatesConclusaoBarrett',false)">✎ conclusão</button>
-            <button class="btn-edit-opt" title="Editar estrutura das frases (Barrett)" onclick="editarEstrutura('barrett')">✎ estrutura</button>
-            <button class="btn-add" onclick="addBarrettParagrafo()">＋</button>
-          </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="sortable-esofago" class="sortable-zone ui-sortable"></div>
-        <!-- /Barrett -->
-      </div>
-    </div>
-
-    <!-- ESTÔMAGO -->
-    <div class="sec-row">
-      <div class="sec-label">Estômago</div>
-      <div class="sec-content" id="Estômago">
-        <!-- Estômago: botões Gastrite + Atrofia + Lesão; corpos colapsáveis abaixo.
-             Gastrite aberto por padrão; accordion por seção (um aberto por vez). -->
-        <div class="painel-grupo">
-          <div class="painel-botoes">
-            <button type="button" class="painel-toggle" data-painel="painel-estomago-gastrite" aria-expanded="true" aria-controls="painel-estomago-gastrite-corpo" onclick="togglePainel('painel-estomago-gastrite')">
-              <span class="painel-tag">Gastrite</span>
-              <span class="painel-chevron" aria-hidden="true">▾</span>
-            </button>
-            <button type="button" class="painel-toggle" data-painel="painel-estomago-atrofia" aria-expanded="false" aria-controls="painel-estomago-atrofia-corpo" onclick="togglePainel('painel-estomago-atrofia')">
-              <span class="painel-tag">Atrofia</span>
-              <span class="painel-chevron" aria-hidden="true">▾</span>
-            </button>
-            <button type="button" class="painel-toggle" data-painel="painel-estomago-lesao" aria-expanded="false" aria-controls="painel-estomago-lesao-corpo" onclick="togglePainel('painel-estomago-lesao')">
-              <span class="painel-tag">Lesão</span>
-              <span class="painel-chevron" aria-hidden="true">▾</span>
-            </button>
-          </div>
-
-          <!-- Gastrite (corpo, aberto por padrão) -->
-          <div class="painel-estomago painel-colapsavel" id="painel-estomago-gastrite">
-            <div class="painel-colapsavel-corpo" id="painel-estomago-gastrite-corpo">
-              <div class="painel-colapsavel-inner" style="overflow:visible">
-          <div class="ctrl-row">
-            <span>Vol.</span>
-            <select id="gastr-liquido-vol"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-liquido-vol','Estômago · Volume','estomagoPainel','liquidoVolume',false)">✎</button>
-            <span>Líq.</span>
-            <select id="gastr-liquido-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-liquido-tipo','Estômago · Líquido (tipo)','estomagoPainel','liquidoTipo',false)">✎</button>
-
-            <span>Pregueado:</span>
-            <select id="gastr-pregueado"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('gastr-pregueado','Estômago · Pregueado','estomagoPainel','pregueado',false)">✎</button>
-
-            <span>Corpo:</span>
-            <select id="gastr-corpo-estado" onchange="_atualizarMucosaDet('gastr','corpo')"></select><button class="btn-edit-opt" title="Editar opções" onclick="_editarMucosaDet('gastr','corpo')">✎</button>
-            <select id="gastr-corpo-det"></select><button class="btn-edit-opt" title="Editar opções" id="gastr-corpo-det-edit" onclick="_editarMucosaDet('gastr','corpo')">✎</button>
-
-            <span>Antro:</span>
-            <select id="gastr-antro-estado" onchange="_atualizarMucosaDet('gastr','antro')"></select><button class="btn-edit-opt" title="Editar opções" onclick="_editarMucosaDet('gastr','antro')">✎</button>
-            <select id="gastr-antro-det"></select><button class="btn-edit-opt" title="Editar opções" id="gastr-antro-det-edit" onclick="_editarMucosaDet('gastr','antro')">✎</button>
-
-            <span>Achado:</span>
-            <select id="gastr-modif" multiple class="atr-modif-hidden"></select><span id="gastr-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('gastr-modif','Estômago · Modificadores (Gastrite)','estomagoPainel','modificadoresGastrite',true,true)">✎</button>
-
-            <button class="btn-edit-opt" title="Editar textos das conclusões (Gastrite)" onclick="editarOptions('','Estômago · Conclusões (Gastrite)','estomagoPainel','templatesConclusaoGastrite',false)">✎ conclusão</button>
-            <button class="btn-edit-opt" title="Editar estrutura das frases (Gastrite)" onclick="editarEstrutura('gastrite')">✎ estrutura</button>
-            <button class="btn-add" onclick="addGastriteParagrafo()">＋</button>
-          </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Atrofia (corpo) -->
-          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-estomago-atrofia">
-            <div class="painel-colapsavel-corpo" id="painel-estomago-atrofia-corpo">
-              <div class="painel-colapsavel-inner">
-          <div class="ctrl-row">
-            <span>Vol.</span>
-            <select id="atr-liquido-vol"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-liquido-vol','Estômago · Volume','estomagoPainel','liquidoVolume',false)">✎</button>
-            <span>Líq.</span>
-            <select id="atr-liquido-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-liquido-tipo','Estômago · Líquido (tipo)','estomagoPainel','liquidoTipo',false)">✎</button>
-
-            <span>KT:</span>
-            <select id="atr-kt"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('atr-kt','Estômago · Atrofia KT','estomagoPainel','atrofiaKT',false)">✎</button>
-
-            <span>Achado:</span>
-            <select id="atr-modif" multiple class="atr-modif-hidden"></select><span id="atr-modif-ui" class="ms-wrap"></span><button class="btn-edit-opt" title="Editar modificadores" onclick="editarOptions('atr-modif','Estômago · Modificadores (Atrofia)','estomagoPainel','modificadoresAtrofia',true,true)">✎</button>
-
-            <button class="btn-edit-opt" title="Editar textos das conclusões (Atrofia)" onclick="editarOptions('','Estômago · Conclusões (Atrofia)','estomagoPainel','templatesConclusaoAtrofia',false)">✎ conclusão</button>
-            <button class="btn-edit-opt" title="Editar estrutura das frases (Atrofia)" onclick="editarEstrutura('atrofia')">✎ estrutura</button>
-            <button class="btn-add" onclick="addAtrofiaParagrafo()">＋</button>
-          </div>
-              </div>
-            </div>
-          </div>
-
-          <!-- Lesão (corpo) -->
-          <div class="painel-estomago painel-colapsavel is-collapsed" id="painel-estomago-lesao">
-            <div class="painel-colapsavel-corpo" id="painel-estomago-lesao-corpo">
-              <div class="painel-colapsavel-inner">
-          <div class="ctrl-row">
-            <span>Parede</span>
-            <select id="lesao-gastr-parede"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-parede','Estômago · Lesão (parede)','estomagoPainel','lesoesParede',false)">✎</button>
-
-            <span>Segmento</span>
-            <select id="lesao-gastr-segmento"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-segmento','Estômago · Lesão (segmento)','estomagoPainel','lesoesSegmento',false)">✎</button>
-
-            <span>Lesão</span>
-            <select id="lesao-gastr-tipo"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-tipo','Estômago · Lesão (tipo)','estomagoPainel','lesoesTipo',false)">✎</button>
-
-            <span>Tamanho</span><input type="text" inputmode="decimal" id="lesao-gastr-tamanho" data-min="1" autocomplete="off" style="width:62px;" placeholder="mm">
-
-            <span>Magnif.</span>
-            <select id="lesao-gastr-magnificacao" onchange="_lesaoGastrToggleMagnif()"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-magnificacao','Estômago · Lesão (magnificação)','estomagoPainel','lesoesMagnificacao',false)">✎</button>
-
-            <span class="lesao-gastr-magnif-dep">DL</span>
-            <select id="lesao-gastr-dl" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-dl','Estômago · Lesão (DL)','estomagoPainel','lesoesDL',false)">✎</button>
-
-            <span class="lesao-gastr-magnif-dep">MV</span>
-            <select id="lesao-gastr-mv" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-mv','Estômago · Lesão (MV)','estomagoPainel','lesoesMV',false)">✎</button>
-
-            <span class="lesao-gastr-magnif-dep">MS</span>
-            <select id="lesao-gastr-ms" class="lesao-gastr-magnif-dep"></select><button class="btn-edit-opt lesao-gastr-magnif-dep" title="Editar opções" onclick="editarOptions('lesao-gastr-ms','Estômago · Lesão (MS)','estomagoPainel','lesoesMS',false)">✎</button>
-
-            <span>Procedimento</span>
-            <select id="lesao-gastr-biopsia"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-biopsia','Estômago · Lesão (procedimento)','estomagoPainel','lesoesBiopsia',false)">✎</button>
-
-            <span>Hemostasia</span>
-            <select id="lesao-gastr-hemostasia"></select><button class="btn-edit-opt" title="Editar opções" onclick="editarOptions('lesao-gastr-hemostasia','Estômago · Lesão (hemostasia)','estomagoPainel','lesoesHemostasia',true)">✎</button>
-
-            <button class="btn-add" onclick="addLesaoGastricaParagrafo()">＋</button>
-          </div>
-              </div>
-            </div>
-          </div>
-        </div>
-        <div id="sortable-estomago" class="sortable-zone ui-sortable"></div>
-        <!-- /Atrofia + Lesão -->
-      </div>
-    </div>
-
-    <!-- DUODENO -->
-    <div class="sec-row">
-      <div class="sec-label">Duodeno</div>
-      <div class="sec-content" id="Duodeno">
-        <div id="sortable-duodeno" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- JEJUNO -->
-    <div class="sec-row">
-      <div class="sec-label">Jejuno</div>
-      <div class="sec-content" id="Jejuno">
-        <div id="sortable-jejuno" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- CONCLUSÃO -->
-    <div class="sec-row">
-      <div class="sec-label">Conclusão</div>
-      <div class="sec-content" id="Conclusão">
-        <div id="sortable-conclusao" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- SEÇÕES PERSONALIZADAS — rodapé do laudo; ocultas até ativação -->
-    <div class="sec-row secao-custom oculta" id="sec-row-custom2">
-      <div class="sec-label" id="sec-label-custom2">Seção 1 (rodapé)</div>
-      <div class="sec-content" id="Custom2">
-        <div id="sortable-custom2" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-    <div class="sec-row secao-custom oculta" id="sec-row-custom4">
-      <div class="sec-label" id="sec-label-custom4">Seção 2 (rodapé)</div>
-      <div class="sec-content" id="Custom4">
-        <div id="sortable-custom4" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- ANATOMO (alimenta o pedido de AP; não entra no laudo) -->
-    <div class="sec-row">
-      <div class="sec-label">Anatomo</div>
-      <div class="sec-content" id="anatomo-sec">
-        <div id="sortable-anatomo" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-    <!-- OUTROS — última seção da página (visual); no laudo o conteúdo continua
-         entre Jejuno e Conclusão, pois montarLaudo lê as seções por ID fixo. -->
-    <div class="sec-row" style="border-bottom:none;">
-      <div class="sec-label">Outros</div>
-      <div class="sec-content" id="Outros">
-        <div id="sortable-outros" class="sortable-zone ui-sortable"></div>
-      </div>
-    </div>
-
-  </div>
-
-    <!-- Barra de ações de laudo — visível só no modo caixa lateral (a sidebar
-         some no lateral, então estes botões ficam acessíveis aqui no rodapé). -->
-    <div class="lateral-laudo-bar">
-      <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
-      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
-      <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
-    </div>
-
-  <footer class="footer-lateral">Gera Laudo - EDA · 2026 · Eduardo K. M. Ogawa</footer>
-</div><!-- /main-col -->
-
-  <!-- OUTPUT -->
-  <div class="output-wrap">
-    <div class="output-bar">
-      <button class="btn-normal-exam" onclick="marcarExameNormal()" title="Marca os itens 'Normal' de todas as seções + pesquisa de H. pylori pelo método histológico">✓ Exame Normal</button>
-      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
-      <button class="btn-ghost"   onclick="reiniciarPagina()" title="Voltar ao estado inicial sem recarregar a página">🔄 Reiniciar</button>
-    </div>
-    <div class="text-toolbar">
-      <button type="button" id="btn-formato" class="btn-formato" title="Personalizar template/formato do laudo" onclick="abrirEditorFormato()">🎛 Formato</button>
-      <span class="fmt-separator"></span>
-      <select id="sel-fonte" autocomplete="off" onchange="applyFont(this.value)">
-        <option value="Arial">Arial</option>
-        <option value="Calibri">Calibri</option>
-        <option value="'Courier New'">Courier</option>
-        <option value="Georgia">Georgia</option>
-        <option value="Segoe UI">Segoe UI</option>
-        <option value="Times New Roman">Times New Roman</option>
-        <option value="Verdana">Verdana</option>
-      </select>
-      <select id="sel-tamanho" autocomplete="off" onchange="applySize(this.value)">
-        <option value="1">8pt</option>
-        <option value="2">10pt</option>
-        <option value="3">11pt</option>
-        <option value="4" selected>12pt</option>
-        <option value="5">14pt</option>
-        <option value="6">18pt</option>
-      </select>
-      <button onclick="toggleFormat('bold')" title="Negrito"><b>B</b></button>
-      <button onclick="toggleFormat('italic')" title="Itálico"><i>I</i></button>
-      <button onclick="toggleFormat('underline')" title="Sublinhado"><u>U</u></button>
-      <span class="fmt-separator"></span>
-      <button onclick="toggleFormat('justifyLeft')" class="align-btn" title="Alinhar à esquerda">
-        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="12" height="1.5" rx=".75"/><rect x="1" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-      </button>
-      <button onclick="toggleFormat('justifyCenter')" class="align-btn" title="Centralizar">
-        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="3" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="4" y="9" width="12" height="1.5" rx=".75"/><rect x="2" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-      </button>
-      <button onclick="toggleFormat('justifyRight')" class="align-btn" title="Alinhar à direita">
-        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="5" y="2" width="14" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="7" y="9" width="12" height="1.5" rx=".75"/><rect x="3" y="12.5" width="16" height="1.5" rx=".75"/></svg>
-      </button>
-      <button onclick="toggleFormat('justifyFull')" class="align-btn" title="Justificar">
-        <svg viewBox="0 0 20 16" width="16" height="14"><rect x="1" y="2" width="18" height="1.5" rx=".75"/><rect x="1" y="5.5" width="18" height="1.5" rx=".75"/><rect x="1" y="9" width="18" height="1.5" rx=".75"/><rect x="1" y="12.5" width="18" height="1.5" rx=".75"/></svg>
-      </button>
-    </div>
-    <div class="output-scroll">
-      <div id="output" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Texto do laudo"></div>
-    </div>
-    <div class="output-bottom-bar">
-      <button class="btn-primary" onclick="copiarConteudo()">📄 Copiar texto</button>
-      <button class="btn-muted"   onclick="gerarPedidoAP()" title="Gerar pedido de anatomopatológico a partir da seção Anatomo">🧪 Gerar AP</button>
-    </div>
-    <div id="ap-wrap" hidden>
-      <div id="ap-output" contenteditable="true" role="textbox" aria-multiline="true" aria-label="Pedido de anatomopatológico"></div>
-      <div class="ap-bar">
-        <strong>🧪 Pedido de Anatomopatológico</strong>
-        <button class="btn-primary" onclick="copiarPedidoAP()">📄 Copiar AP</button>
-        <button class="btn-muted" onclick="renumerarPedidoAP()" title="Renumera os frascos do pedido após edição manual">🔢 Renumerar</button>
-        <button class="btn-ghost" onclick="document.getElementById('ap-wrap').hidden = true">✕ Fechar</button>
-      </div>
-    </div>
-  </div>
-  <footer>Gera Laudo - EDA · 2026 · Eduardo K. M. Ogawa</footer>
-</div><!-- /wrap -->
-
-<!-- fecharTodosPopups, hidePopup, hideCreatePopup definidos em ui_eda.js -->
+<script>
+  var alvo = "https://eda.geralaudo.com.br/";
+  var seg = 5, el = document.getElementById("t");
+  var iv = setInterval(function(){
+    seg--; if(el) el.textContent = seg;
+    if(seg <= 0){ clearInterval(iv); window.location.replace(alvo); }
+  }, 1000);
+</script>
 </body>
 </html>
